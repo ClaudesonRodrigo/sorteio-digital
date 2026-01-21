@@ -1,6 +1,17 @@
 import { z } from "zod";
 
-// Interface para o que já existe no Banco (Sempre tem ID)
+/**
+ * Interface para as Cotas Premiadas (Prêmios Instantâneos).
+ */
+export interface LuckyNumber {
+  number: string;
+  prize: string;
+  winnerPhone?: string;
+}
+
+/**
+ * Interface para o que já existe no Banco (Sempre tem ID).
+ */
 export interface Raffle {
   id: string; 
   title: string;
@@ -10,9 +21,12 @@ export interface Raffle {
   type: "DEZENA" | "CENTENA" | "MILHAR";
   totalTickets: number;
   status: "OPEN" | "DRAWING" | "FINISHED" | "CANCELED";
+  luckyNumbers?: LuckyNumber[]; // Campo para Cotas Premiadas
 }
 
-// Schema para validação do formulário (O ID é gerado pelo Firebase depois)
+/**
+ * Schema para validação do formulário (O ID é gerado pelo Firebase depois).
+ */
 export const RaffleSchema = z.object({
   title: z.string().min(5, "O título deve ter pelo menos 5 caracteres"),
   description: z.string().min(1, "A descrição é obrigatória"),
@@ -21,4 +35,8 @@ export const RaffleSchema = z.object({
   type: z.enum(["DEZENA", "CENTENA", "MILHAR"]),
   totalTickets: z.number().int(),
   status: z.enum(["OPEN", "DRAWING", "FINISHED", "CANCELED"]).default("OPEN"),
+  luckyNumbers: z.array(z.object({
+    number: z.string(),
+    prize: z.string()
+  })).optional(),
 });
