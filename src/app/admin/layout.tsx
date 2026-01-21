@@ -52,7 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Não renderiza nada se não estiver na tela de login e não for o admin
   if (pathname !== "/admin/login" && !authorized) return null;
 
-  // Tela de login renderiza limpa
+  // Tela de login renderiza limpa sem sidebar
   if (pathname === "/admin/login") {
     return <>{children}</>;
   }
