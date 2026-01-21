@@ -1,75 +1,128 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Copy, Check, MessageCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useSettings } from '@/hooks/useSettings';
+import { db } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { Copy, Check, MessageCircle, Loader2, Smartphone } from 'lucide-react';
+import { QRCodeSVG } from "qrcode.react";
 
 interface CheckoutModalProps {
   totalValue: number;
   selectedNumbers: string[];
   raffleTitle: string;
+  raffleId: string; 
 }
 
-export const CheckoutModal = ({ totalValue, selectedNumbers, raffleTitle }: CheckoutModalProps) => {
-  const { pixKey } = useSettings();
+export const CheckoutModal = ({ totalValue, selectedNumbers, raffleTitle, raffleId }: CheckoutModalProps) => {
+  const [step, setStep] = useState<'info' | 'pix'>('info');
+  const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [formData, setFormData] = useState({ name: "", phone: "" });
 
-  // URL para gerar QR Code estático (exemplo didático)
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=pay-to-${pixKey}-amount-${totalValue}`;
+  // Chave Pix (Pode ser configurada no painel de settings depois)
+  const pixKey = "SUA_CHAVE_PIX_AQUI"; 
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(pixKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleConfirmOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Trava de Segurança: impede o erro de 'undefined' no banco
+    if (!raffleId) {
+      alert("Erro crítico: ID do sorteio não encontrado. Recarregue a página.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Salva o pedido no Firestore para aparecer no Admin Dashboard
+      await addDoc(collection(db, "pedidos"), {
+        customerName: formData.name,
+        customerPhone: formData.phone,
+        selectedNumbers,
+        totalValue,
+        raffleTitle,
+        raffleId, // Campo crucial para a aprovação no Admin
+        status: "PENDENTE",
+        createdAt: serverTimestamp(),
+      });
+      
+      // 2. Muda para a tela do Pix
+      setStep('pix');
+    } catch (error) {
+      console.error("Erro ao processar reserva:", error);
+      alert("Erro ao processar sua reserva. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleWhatsAppRedirect = () => {
-    const message = `Olá! Acabei de fazer o pagamento do sorteio: ${raffleTitle}. %0A*Números:* ${selectedNumbers.join(", ")} %0A*Valor:* R$ ${totalValue.toFixed(2)}`;
-    window.open(`https://wa.me/55799XXXX-XXXX?text=${message}`, '_blank'); // Troque pelo seu número de Aracaju
+    const message = `Olá! Acabei de fazer o pedido para o sorteio: *${raffleTitle}* %0A*Números:* ${selectedNumbers.join(", ")} %0A*Valor:* R$ ${totalValue.toFixed(2)} %0A*Nome:* ${formData.name}`;
+    // Mantendo o seu número de Sergipe
+    window.open(`https://wa.me/5579996337995?text=${message}`, '_blank');
   };
 
+  if (step === 'info') {
+    return (
+      <div className="bg-[#121826] text-white p-8 rounded-[2.5rem] shadow-2xl max-w-md mx-auto border border-slate-800 animate-in zoom-in duration-300">
+        <h2 className="text-2xl font-black uppercase mb-6 tracking-tighter text-center italic">Dados da Reserva</h2>
+        <form onSubmit={handleConfirmOrder} className="space-y-4">
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Nome Completo</label>
+            <input 
+              required
+              placeholder="Digite seu nome"
+              className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 outline-none focus:border-blue-500 transition-all text-white"
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">WhatsApp com DDD</label>
+            <input 
+              required
+              type="tel"
+              placeholder="(79) 9XXXX-XXXX"
+              className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 outline-none focus:border-blue-500 transition-all text-white"
+              value={formData.phone}
+              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+            />
+          </div>
+          <button 
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 py-5 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all text-white"
+          >
+            {loading ? <Loader2 className="animate-spin text-white" /> : <Smartphone size={18} />}
+            GERAR PIX AGORA
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-[#121826] text-white p-6 rounded-3xl shadow-2xl max-w-md mx-auto border border-slate-800">
+    <div className="bg-[#121826] text-white p-8 rounded-[2.5rem] shadow-2xl max-w-md mx-auto border border-slate-800 animate-in fade-in duration-500">
       <div className="text-center mb-6">
-        <p className="text-slate-400 text-sm uppercase font-bold tracking-widest">Valor Total</p>
-        <h2 className="text-4xl font-black text-[#00E676]">R$ {totalValue.toFixed(2)}</h2>
+        <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest">Pague via Pix</p>
+        <h2 className="text-4xl font-black text-[#00E676] tracking-tighter italic">R$ {totalValue.toFixed(2)}</h2>
       </div>
 
-      <div className="bg-[#1A2235] p-6 rounded-2xl border border-dashed border-slate-700 text-center">
-        <div className="flex items-center justify-center gap-2 mb-4 text-blue-400 font-bold">
-          <span className="p-1 bg-blue-500/20 rounded text-[10px]">PIX</span>
-          Pagamento via Pix
-        </div>
+      <div className="bg-white p-6 rounded-4xl inline-block w-full mb-6 shadow-inner border-4 border-white">
+        <QRCodeSVG value={pixKey} size={250} className="mx-auto" level="H" />
+      </div>
 
-        <img src={qrCodeUrl} alt="QR Code Pix" className="mx-auto rounded-lg mb-4 bg-white p-2" />
-
+      <div className="space-y-3">
         <button 
-          onClick={copyToClipboard}
-          className="w-full flex items-center justify-center gap-2 bg-[#2D3748] hover:bg-[#3D4A61] py-3 rounded-xl font-bold transition-all mb-2"
+          onClick={() => { navigator.clipboard.writeText(pixKey); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+          className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 py-4 rounded-xl font-bold transition-all border border-slate-700 text-white"
         >
           {copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
-          {copied ? "Copiado!" : "Copiar Chave Pix"}
+          {copied ? "COPIADO COM SUCESSO!" : "COPIAR CHAVE PIX"}
         </button>
-        <p className="text-slate-500 text-xs">Copia a chave e pague no seu app de banco.</p>
-      </div>
-
-      <div className="mt-6 space-y-4">
-        <div>
-          <label className="text-slate-400 text-xs font-bold uppercase ml-1">Seu WhatsApp (para confirmação)</label>
-          <input 
-            type="text" 
-            placeholder="(79) 9XXXX-XXXX"
-            className="w-full bg-[#1A2235] border border-slate-700 rounded-xl p-4 mt-1 outline-none focus:border-blue-500 transition-all"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </div>
 
         <button 
           onClick={handleWhatsAppRedirect}
-          className="w-full bg-[#075E54] hover:bg-[#0C7A6D] flex items-center justify-center gap-2 py-4 rounded-xl font-black text-lg transition-all"
+          className="w-full bg-[#075E54] hover:bg-[#0C7A6D] flex items-center justify-center gap-2 py-5 rounded-xl font-black text-sm uppercase transition-all shadow-lg active:scale-95 text-white"
         >
           <MessageCircle size={24} />
           Enviar Comprovante
