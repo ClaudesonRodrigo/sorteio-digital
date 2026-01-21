@@ -2,17 +2,25 @@
 
 import React, { useState, useMemo } from 'react';
 import { cn, formatTicketNumber } from '@/lib/utils';
-import { Zap, Search } from 'lucide-react';
+import { Zap, Search, Clock } from 'lucide-react';
 
 interface NumberGridProps {
   totalTickets: number;
   soldTickets: string[];
+  pendingTickets: string[]; // NOVO: Números aguardando pagamento
   onSelect: (number: string) => void;
   onSelectMultiple: (numbers: string[]) => void; 
   selectedNumbers: string[];
 }
 
-export const NumberGrid = ({ totalTickets, soldTickets, onSelect, onSelectMultiple, selectedNumbers }: NumberGridProps) => {
+export const NumberGrid = ({ 
+  totalTickets, 
+  soldTickets, 
+  pendingTickets, 
+  onSelect, 
+  onSelectMultiple, 
+  selectedNumbers 
+}: NumberGridProps) => {
   const [search, setSearch] = useState("");
 
   const numbers = useMemo(() => {
@@ -21,16 +29,17 @@ export const NumberGrid = ({ totalTickets, soldTickets, onSelect, onSelectMultip
   }, [totalTickets]);
 
   const filteredNumbers = useMemo(() => {
-    const list = search 
-      ? numbers.filter(n => n.includes(search)) 
-      : numbers;
-    
-    // Regra: Apenas 200 números para não cansar o cliente
+    const list = search ? numbers.filter(n => n.includes(search)) : numbers;
     return list.slice(0, 200); 
   }, [search, numbers]);
 
   const handleQuickBuy = (amount: number) => {
-    const available = numbers.filter(n => !soldTickets.includes(n) && !selectedNumbers.includes(n));
+    // Agora filtramos também os pendentes para não selecionar o que já está reservado
+    const available = numbers.filter(n => 
+      !soldTickets.includes(n) && 
+      !pendingTickets.includes(n) && 
+      !selectedNumbers.includes(n)
+    );
     const shuffled = [...available].sort(() => 0.5 - Math.random());
     const selection = shuffled.slice(0, amount);
     onSelectMultiple(selection);
@@ -40,8 +49,7 @@ export const NumberGrid = ({ totalTickets, soldTickets, onSelect, onSelectMultip
 
   return (
     <div className="space-y-8">
-      {/* Compra Rápida (Pacotes) */}
-      <div className="bg-[#121826] p-6 rounded-[2.5rem] border border-slate-800 shadow-xl">
+      <div className="bg-[#121826] p-6 rounded-[2.5rem] border border-slate-800 shadow-xl text-left">
         <div className="flex items-center gap-2 mb-4 text-blue-500 font-black uppercase tracking-widest text-xs">
           <Zap size={18} fill="currentColor" /> Compra Rápida
         </div>
@@ -59,7 +67,6 @@ export const NumberGrid = ({ totalTickets, soldTickets, onSelect, onSelectMultip
         </div>
       </div>
 
-      {/* Busca e Legenda */}
       <div className="bg-[#121826] p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-80">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
@@ -71,9 +78,10 @@ export const NumberGrid = ({ totalTickets, soldTickets, onSelect, onSelectMultip
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-4 text-[10px] font-black uppercase tracking-widest text-slate-500">
+        <div className="flex flex-wrap justify-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-500">
           <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-slate-800 border border-slate-700" /> Livre</div>
-          <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-blue-600" /> Selecionado</div>
+          <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-blue-600" /> Você</div>
+          <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-orange-500" /> Reservado</div>
           <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-red-900/40" /> Vendido</div>
         </div>
       </div>
@@ -81,33 +89,31 @@ export const NumberGrid = ({ totalTickets, soldTickets, onSelect, onSelectMultip
       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 lg:grid-cols-12 gap-2">
         {filteredNumbers.map((num) => {
           const isSold = soldTickets.includes(num);
+          const isPending = pendingTickets.includes(num);
           const isSelected = selectedNumbers.includes(num);
 
           return (
             <button
               key={num}
-              disabled={isSold}
+              disabled={isSold || isPending}
               onClick={() => onSelect(num)}
               className={cn(
-                "flex h-12 items-center justify-center rounded-xl border text-sm font-bold transition-all active:scale-90",
+                "flex h-12 items-center justify-center rounded-xl border text-sm font-bold transition-all active:scale-90 relative overflow-hidden",
                 isSold 
                   ? "bg-red-900/10 border-red-900/20 text-red-900/40 cursor-not-allowed" 
-                  : isSelected
-                    ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-900/40"
-                    : "bg-[#121826] border-slate-800 text-slate-400 hover:border-blue-500 hover:text-blue-500"
+                  : isPending
+                    ? "bg-orange-500/20 border-orange-500/40 text-orange-500 cursor-not-allowed"
+                    : isSelected
+                      ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-900/40"
+                      : "bg-[#121826] border-slate-800 text-slate-400 hover:border-blue-500 hover:text-blue-500"
               )}
             >
               {num}
+              {isPending && <Clock size={8} className="absolute top-1 right-1 opacity-50" />}
             </button>
           );
         })}
       </div>
-
-      {numbers.length > 200 && !search && (
-        <p className="text-center text-slate-600 text-[10px] uppercase font-bold tracking-widest">
-          Exibindo os primeiros 200 números de {numbers.length}. Use a busca ou pacotes.
-        </p>
-      )}
     </div>
   );
 };

@@ -11,10 +11,8 @@ import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner"; // Importamos o toast
 
-// 1. Definição do Tipo do Formulário (O Segredo da Vitória)
-// Usamos o z.infer para que o formulário tenha exatamente os campos do RaffleSchema
-// Isso remove a exigência do 'id' que estava travando o resolver.
 type RaffleFormData = z.infer<typeof RaffleSchema>;
 
 export default function NewRaffle() {
@@ -24,13 +22,12 @@ export default function NewRaffle() {
   const [luckyNumbers, setLuckyNumbers] = useState<LuckyNumber[]>([]);
   const [copied, setCopied] = useState(false);
 
-  // 2. Configuração do useForm com a tipagem RaffleFormData
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RaffleFormData>({
-    resolver: zodResolver(RaffleSchema),
+    resolver: zodResolver(RaffleSchema) as any,
     defaultValues: {
       title: "", 
       description: "", 
-      ticketPrice: 0.50, // Valor > 0 para passar na validação do schema
+      ticketPrice: 0.10,
       drawDate: "", 
       type: "CENTENA", 
       totalTickets: 1000, 
@@ -54,44 +51,52 @@ export default function NewRaffle() {
     setLuckyNumbers(updated);
   };
 
-  // 3. Função onSubmit devidamente tipada
   const onSubmit: SubmitHandler<RaffleFormData> = async (data) => {
     setLoading(true);
+    const toastId = toast.loading("A processar a criação do sorteio...");
+    
     try {
-      // Salva na coleção "rifas" com os dados validados + cotas premiadas
       const docRef = await addDoc(collection(db, "rifas"), {
         ...data, 
         luckyNumbers, 
         createdAt: serverTimestamp(),
       });
       setCreatedId(docRef.id);
+      toast.success("Sorteio criado com sucesso! 🚀", { id: toastId });
     } catch (error) {
-      console.error("Erro ao salvar no Firebase:", error);
-      alert("Erro ao criar sorteio. Verifique o console.");
+      console.error(error);
+      toast.error("Falha ao salvar. Verifique a conexão.", { id: toastId });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareLink);
+    setCopied(true);
+    toast.success("Link copiado para a área de transferência!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (createdId) {
     return (
       <div className="min-h-screen bg-[#0A0F1C] flex items-center justify-center p-6 text-white text-center">
-        <div className="max-w-md w-full bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl">
+        <div className="max-w-md w-full bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl animate-in zoom-in duration-500">
           <div className="bg-green-500/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
             <Share2 className="text-green-500" size={32} />
           </div>
-          <h2 className="text-3xl font-black uppercase mb-2">Sorteio Criado!</h2>
-          <div className="bg-white p-4 rounded-2xl inline-block mb-8 shadow-xl">
+          <h2 className="text-3xl font-black uppercase mb-2 italic">Pronto para Divulgar!</h2>
+          <div className="bg-white p-4 rounded-3xl inline-block mb-8 shadow-xl">
             <QRCodeSVG value={shareLink} size={180} />
           </div>
           <div className="bg-slate-900 p-4 rounded-xl flex items-center justify-between gap-2 text-left mb-6 border border-slate-800">
             <span className="text-xs text-slate-400 truncate flex-1">{shareLink}</span>
-            <button onClick={() => { navigator.clipboard.writeText(shareLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
+            <button onClick={handleCopy}>
               {copied ? <Check size={20} className="text-green-500" /> : <Copy size={20} className="text-blue-500" />}
             </button>
           </div>
           <button onClick={() => router.push("/admin")} className="w-full bg-slate-800 hover:bg-slate-700 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all">
-            <ArrowLeft size={18} /> Voltar ao Painel
+            <ArrowLeft size={18} /> Voltar à Gestão
           </button>
         </div>
       </div>
@@ -105,16 +110,15 @@ export default function NewRaffle() {
           <button onClick={() => router.back()} className="p-2 hover:bg-slate-800 rounded-full transition-all text-slate-400">
             <ArrowLeft size={24} />
           </button>
-          <h1 className="text-3xl font-black uppercase tracking-tighter text-white leading-none">Nova Rifa</h1>
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-white leading-none italic">Novo Sorteio</h1>
         </div>
 
-        {/* Módulo de Debug: Mostra se o formulário está travado por erro de validação */}
         {Object.keys(errors).length > 0 && (
-          <div className="mb-6 bg-red-500/10 border border-red-500/50 p-6 rounded-3xl flex items-start gap-4">
+          <div className="mb-6 bg-red-500/10 border border-red-500/50 p-6 rounded-3xl flex items-start gap-4 animate-in fade-in duration-500">
             <AlertCircle className="text-red-500 shrink-0" size={24} />
-            <div className="text-left text-red-400 text-xs font-bold uppercase tracking-widest">
-              <p className="mb-2">Ajuste os campos abaixo para salvar:</p>
-              <ul className="list-disc list-inside">
+            <div className="text-left">
+              <p className="text-red-500 font-black uppercase text-xs tracking-widest leading-none mb-2">Campos Pendentes:</p>
+              <ul className="list-disc list-inside text-xs text-red-400 font-bold uppercase">
                 {Object.entries(errors).map(([key, err]: any) => (
                   <li key={key}>{key}: {err.message}</li>
                 ))}
@@ -125,9 +129,8 @@ export default function NewRaffle() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="bg-[#121826] p-8 rounded-[2.5rem] border border-slate-800 space-y-6 shadow-2xl text-left">
-            {/* Título */}
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Título do Sorteio</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Título da Rifa</label>
               <input 
                 {...register("title")} 
                 className={cn(
@@ -138,9 +141,8 @@ export default function NewRaffle() {
               />
             </div>
 
-            {/* Descrição: Campo que estava faltando no seu código anterior */}
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Descrição / Regras</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Descrição e Regras</label>
               <textarea 
                 {...register("description")} 
                 rows={3}
@@ -148,14 +150,13 @@ export default function NewRaffle() {
                   "w-full bg-slate-900 border rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none",
                   errors.description ? "border-red-500" : "border-slate-800"
                 )} 
-                placeholder="Explique os detalhes do sorteio..."
+                placeholder="Detalhes do sorteio..."
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Preço */}
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Valor por Cota (R$)</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Preço da Cota (R$)</label>
                 <input 
                   type="number" 
                   step="0.01" 
@@ -166,7 +167,6 @@ export default function NewRaffle() {
                   )} 
                 />
               </div>
-              {/* Data */}
               <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Data do Sorteio</label>
                 <input 
@@ -180,9 +180,8 @@ export default function NewRaffle() {
               </div>
             </div>
 
-            {/* Tipo */}
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Formato da Cartela</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Formato</label>
               <select {...register("type")} className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white appearance-none outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="DEZENA">Dezena (100 números)</option>
                 <option value="CENTENA">Centena (1.000 números)</option>
@@ -191,10 +190,9 @@ export default function NewRaffle() {
             </div>
           </div>
 
-          {/* Cotas Premiadas */}
           <div className="bg-[#121826] p-8 rounded-[2.5rem] border border-slate-800 space-y-4 shadow-xl text-left">
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-black uppercase tracking-tighter flex items-center gap-2">
+              <h2 className="text-lg font-black uppercase tracking-tighter flex items-center gap-2 text-white italic">
                 <Gift className="text-blue-500" size={20} /> Cotas Premiadas
               </h2>
               <button 
@@ -214,7 +212,7 @@ export default function NewRaffle() {
                   onChange={(e) => updateLuckyNumber(idx, "number", e.target.value)} 
                 />
                 <input 
-                  placeholder="Prêmio (Ex: R$ 50 no Pix)" 
+                  placeholder="Prémio" 
                   className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm focus:border-blue-500 outline-none text-white" 
                   value={ln.prize} 
                   onChange={(e) => updateLuckyNumber(idx, "prize", e.target.value)} 
