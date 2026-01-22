@@ -24,7 +24,7 @@ import {
   Plus,
   Edit,
   Trash2,
-  Trophy,
+  Trophy, // Ícone oficial da Lucide
   Loader2,
   Eye,
   Share2,
@@ -63,8 +63,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
-  
-  // Estado para o Modal de Impressão de QR Code
   const [printRaffle, setPrintRaffle] = useState<Raffle | null>(null);
 
   useEffect(() => {
@@ -92,15 +90,11 @@ export default function AdminDashboard() {
     };
   }, [orders]);
 
-  // FUNÇÕES DE ELITE
-  const handleShare = (raffleId: string, title: string) => {
-    const url = `${window.location.origin}/raffle/${raffleId}`;
-    if (navigator.share) {
-      navigator.share({ title, url }).catch(() => toast.error("Erro ao compartilhar"));
-    } else {
-      navigator.clipboard.writeText(url);
-      toast.success("Link copiado para o Zap!");
-    }
+  const toggleExpand = (id: string) => {
+    const newSet = new Set(expandedOrders);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setExpandedOrders(newSet);
   };
 
   const handleApproveOrder = async (order: Order) => {
@@ -119,100 +113,89 @@ export default function AdminDashboard() {
       await Promise.all(movePromises);
       toast.success("Pagamento confirmado!", { id: toastId });
     } catch (error) {
-      toast.error("Erro ao aprovar.", { id: toastId });
+      toast.error("Erro ao aprovar.");
     }
   };
 
   const handleCancelOrder = async (order: Order) => {
     if (!confirm("Cancelar reserva?")) return;
-    const toastId = toast.loading("Cancelando...");
     try {
       await updateDoc(doc(db, "pedidos", order.id), { status: "CANCELADO" });
       const clearPromises = order.selectedNumbers.map(num => 
         deleteDoc(doc(db, "rifas", order.raffleId, "pending_numbers", num))
       );
       await Promise.all(clearPromises);
-      toast.success("Reserva cancelada!", { id: toastId });
+      toast.success("Reserva liberada!");
     } catch (error) {
-      toast.error("Erro ao cancelar.", { id: toastId });
+      toast.error("Erro ao cancelar.");
     }
   };
 
-  if (loading) return <div className="h-screen bg-[#0A0F1C] flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div>;
+  const handleShare = (raffleId: string, title: string) => {
+    const url = `${window.location.origin}/raffle/${raffleId}`;
+    if (navigator.share) {
+      navigator.share({ title, url }).catch(() => toast.error("Erro ao compartilhar"));
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success("Link copiado!");
+    }
+  };
+
+  const filteredOrders = orders.filter(o => 
+    o.customerName.toLowerCase().includes(filter.toLowerCase()) || 
+    o.customerPhone.includes(filter)
+  );
+
+  if (loading) return <div className="h-screen bg-[#0A0F1C] flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={48} /></div>;
 
   return (
     <div className="min-h-screen bg-[#0A0F1C] text-white p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-10">
         
-        {/* Header Principal */}
+        {/* Header Superior */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="animate-in fade-in slide-in-from-left duration-500">
-            <h1 className="text-4xl font-black uppercase italic tracking-tighter leading-none mb-2 text-blue-500">Dashboard Admin</h1>
-            <p className="text-slate-500 text-xs font-black uppercase tracking-widest italic">Controle de Vendas do Sorteio Federal</p>
+          <div>
+            <h1 className="text-4xl font-black uppercase italic tracking-tighter text-blue-500">Dashboard Admin</h1>
+            <p className="text-slate-500 text-xs font-black uppercase tracking-widest italic">Sorteio Digital - Aracaju</p>
           </div>
           <button 
             onClick={() => router.push('/admin/raffles/new')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs flex items-center gap-2 shadow-xl shadow-blue-900/20 transition-all active:scale-95"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs flex items-center gap-2 shadow-xl active:scale-95 transition-all"
           >
             <Plus size={18} /> Nova Rifa
           </button>
         </div>
 
         {/* Cards de Estatísticas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom duration-700">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard title="Total Pedidos" value={stats.totalOrders} icon={<ShoppingBag size={24} />} color="blue" />
           <StatCard title="Faturamento" value={stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} icon={<DollarSign size={24} />} color="green" />
           <StatCard title="Cotas Vendidas" value={stats.soldTicketsCount} icon={<Ticket size={24} />} color="purple" />
           <StatCard title="Aguardando Pix" value={stats.pendingCount} icon={<Clock size={24} />} color="orange" />
         </div>
 
-        {/* SEÇÃO DE RIFAS COM FERRAMENTAS DE MARKETING */}
+        {/* Gerenciar Rifas */}
         <div className="space-y-6">
           <h2 className="text-xl font-black uppercase italic flex items-center gap-3">
             <Ticket className="text-blue-500" size={24} /> Gerenciar Sorteios
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {raffles.map((raffle) => (
-              <div key={raffle.id} className="bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] hover:border-slate-700 transition-all group relative">
-                {/* Ações Rápidas (Editar/Excluir) */}
+              <div key={raffle.id} className="bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] hover:border-slate-700 transition-all relative group">
                 <div className="absolute top-6 right-6 flex gap-2">
                   <button onClick={() => router.push(`/admin/raffles/${raffle.id}/edit`)} className="p-2 text-slate-500 hover:text-white transition-colors bg-slate-900 rounded-lg"><Edit size={16} /></button>
                 </div>
-
                 <h3 className="text-xl font-black uppercase italic mb-1 pr-12 tracking-tight">{raffle.title}</h3>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-6">Status: {raffle.status}</p>
                 
-                {/* Botões de Ação do DashBoard */}
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  <button 
-                    onClick={() => router.push(`/raffle/${raffle.id}`)}
-                    className="flex flex-col items-center justify-center gap-2 bg-slate-900 border border-slate-800 p-3 rounded-2xl text-slate-400 hover:text-blue-500 hover:border-blue-500 transition-all"
-                    title="Visualizar Página Pública"
-                  >
-                    <Eye size={18} />
-                    <span className="text-[8px] font-black uppercase">Ver</span>
-                  </button>
-                  <button 
-                    onClick={() => handleShare(raffle.id, raffle.title)}
-                    className="flex flex-col items-center justify-center gap-2 bg-slate-900 border border-slate-800 p-3 rounded-2xl text-slate-400 hover:text-green-500 hover:border-green-500 transition-all"
-                    title="Compartilhar Link"
-                  >
-                    <Share2 size={18} />
-                    <span className="text-[8px] font-black uppercase">Zap</span>
-                  </button>
-                  <button 
-                    onClick={() => setPrintRaffle(raffle)}
-                    className="flex flex-col items-center justify-center gap-2 bg-slate-900 border border-slate-800 p-3 rounded-2xl text-slate-400 hover:text-orange-500 hover:border-orange-500 transition-all"
-                    title="Imprimir QR Code"
-                  >
-                    <Printer size={18} />
-                    <span className="text-[8px] font-black uppercase">Print</span>
-                  </button>
+                <div className="grid grid-cols-3 gap-2 my-6">
+                  <button onClick={() => router.push(`/raffle/${raffle.id}`)} className="flex flex-col items-center gap-2 bg-slate-900 border border-slate-800 p-3 rounded-2xl text-slate-400 hover:text-blue-500 transition-all"><Eye size={18} /><span className="text-[8px] font-black uppercase">Ver</span></button>
+                  <button onClick={() => handleShare(raffle.id, raffle.title)} className="flex flex-col items-center gap-2 bg-slate-900 border border-slate-800 p-3 rounded-2xl text-slate-400 hover:text-green-500 transition-all"><Share2 size={18} /><span className="text-[8px] font-black uppercase">Zap</span></button>
+                  <button onClick={() => setPrintRaffle(raffle)} className="flex flex-col items-center gap-2 bg-slate-900 border border-slate-800 p-3 rounded-2xl text-slate-400 hover:text-orange-500 transition-all"><Printer size={18} /><span className="text-[8px] font-black uppercase">Print</span></button>
                 </div>
 
                 <button 
                   onClick={() => router.push(`/admin/raffles/${raffle.id}/check`)}
-                  className="w-full bg-blue-600/10 border border-blue-600/20 hover:bg-blue-600 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all font-black uppercase text-[10px] tracking-widest text-blue-500 hover:text-white shadow-lg"
+                  className="w-full bg-blue-600/10 border border-blue-600/20 hover:bg-blue-600 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all font-black uppercase text-[10px] tracking-widest text-blue-500 hover:text-white"
                 >
                   <Trophy size={14} /> Verificar Sorteio
                 </button>
@@ -221,54 +204,80 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* LISTAGEM DE PEDIDOS (MANTIDO) */}
+        {/* Listagem de Aprovação */}
         <div className="bg-[#121826] border border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
           <div className="p-8 border-b border-slate-800 bg-slate-900/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <h2 className="text-lg font-black uppercase italic flex items-center gap-3">
-               Histórico de Vendas
+            <h2 className="text-lg font-black uppercase italic flex items-center gap-3 tracking-tight">
+              <Clock className="text-orange-500" size={20} /> Aprovação de Pagamentos
             </h2>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
               <input 
                 type="text" 
                 placeholder="Buscar cliente..." 
-                className="bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-blue-500 transition-all w-full md:w-64"
+                className="bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-blue-500 transition-all w-64"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               />
             </div>
           </div>
-          {/* ... (Tabela de Pedidos igual à anterior, mantendo a limpeza de 10 números) */}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-900/50 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  <th className="px-8 py-5">Cliente</th>
+                  <th className="px-8 py-5">Sorteio / Números</th>
+                  <th className="px-8 py-5 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {filteredOrders.map((order) => {
+                  const isExpanded = expandedOrders.has(order.id);
+                  const numbers = isExpanded ? order.selectedNumbers : order.selectedNumbers.slice(0, 10);
+                  const hasMore = order.selectedNumbers.length > 10;
+                  return (
+                    <tr key={order.id} className="hover:bg-slate-800/20 transition-all text-sm">
+                      <td className="px-8 py-6">
+                        <p className="font-bold">{order.customerName}</p>
+                        <p className="text-xs text-slate-500">{order.customerPhone}</p>
+                      </td>
+                      <td className="px-8 py-6">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2">{order.raffleTitle}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {numbers.map(n => <span key={n} className="bg-slate-900 border border-slate-700 text-[10px] font-black px-2 py-0.5 rounded text-blue-400">{n}</span>)}
+                          {hasMore && <button onClick={() => toggleExpand(order.id)} className="text-[10px] font-black text-blue-500 ml-1">{isExpanded ? "[-]" : `+${order.selectedNumbers.length - 10}`}</button>}
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        {order.status === "PENDENTE" ? (
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => handleCancelOrder(order)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"><XCircle size={18} /></button>
+                            <button onClick={() => handleApproveOrder(order)} className="bg-blue-600 px-4 py-2 rounded-lg text-xs font-black uppercase">Aprovar</button>
+                          </div>
+                        ) : (
+                          <span className={cn("text-[10px] font-black px-3 py-1 rounded-full uppercase", order.status === "PAGO" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>{order.status}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* MODAL DE IMPRESSÃO DE QR CODE */}
+        {/* Modal QR Code */}
         {printRaffle && (
           <div className="fixed inset-0 z-100 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
-            <div className="bg-white text-black p-10 rounded-[3rem] w-full max-w-sm text-center relative shadow-[0_0_50px_rgba(255,255,255,0.1)]">
-              <button onClick={() => setPrintRaffle(null)} className="absolute -top-12 right-0 text-white flex items-center gap-2 uppercase font-black text-[10px] tracking-widest"><X size={20}/> Fechar</button>
-              
-              <div className="print-area">
-                <h2 className="text-2xl font-black uppercase italic mb-2 leading-none text-black">SORTEIO FEDERAL</h2>
-                <p className="text-xs font-bold uppercase tracking-widest mb-8 text-slate-500">{printRaffle.title}</p>
-                
-                <div className="bg-white p-4 rounded-3xl border-4 border-black inline-block mb-8">
-                  <QRCodeSVG 
-                    value={`${window.location.origin}/raffle/${printRaffle.id}`} 
-                    size={220} 
-                    level="H"
-                  />
-                </div>
-
-                <p className="font-black text-sm uppercase tracking-tighter mb-1">Escaneie para Participar!</p>
-                <p className="text-[10px] font-bold text-slate-400">WWW.SORTEIOFEDERAL.COM.BR</p>
+            <div className="bg-white text-black p-10 rounded-[3rem] w-full max-w-sm text-center relative">
+              <button onClick={() => setPrintRaffle(null)} className="absolute -top-12 right-0 text-white flex items-center gap-2 uppercase font-black text-[10px]"><X size={20}/> Fechar</button>
+              <h2 className="text-2xl font-black uppercase italic mb-8">Sorteio Federal</h2>
+              <div className="bg-white p-4 rounded-3xl border-4 border-black inline-block mb-8">
+                <QRCodeSVG value={`${window.location.origin}/raffle/${printRaffle.id}`} size={220} level="H" />
               </div>
-
-              <button 
-                onClick={() => window.print()}
-                className="mt-10 w-full bg-black text-white py-5 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 hover:scale-95 transition-all shadow-xl"
-              >
-                <Printer size={18} /> Imprimir Agora
-              </button>
+              <p className="font-black text-sm uppercase mb-6">{printRaffle.title}</p>
+              <button onClick={() => window.print()} className="w-full bg-black text-white py-5 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3"><Printer size={18} /> Imprimir QR Code</button>
             </div>
           </div>
         )}
@@ -277,16 +286,13 @@ export default function AdminDashboard() {
   );
 }
 
-// Subcomponente StatCard (Mantido)
 function StatCard({ title, value, icon, color }: any) {
   const colors: any = { blue: "text-blue-500 bg-blue-500/10", green: "text-green-500 bg-green-500/10", purple: "text-purple-500 bg-purple-500/10", orange: "text-orange-500 bg-orange-500/10" };
   return (
-    <div className="bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] shadow-xl hover:border-slate-700 transition-all">
+    <div className="bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] shadow-xl">
       <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-6", colors[color])}>{icon}</div>
-      <div>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">{title}</p>
-        <p className="text-3xl font-black text-white tracking-tighter italic">{value}</p>
-      </div>
+      <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">{title}</p>
+      <p className="text-3xl font-black text-white italic tracking-tighter">{value}</p>
     </div>
   );
 }
