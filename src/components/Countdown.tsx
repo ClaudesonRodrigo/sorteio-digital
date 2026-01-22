@@ -50,11 +50,11 @@ export const Countdown = ({ targetDate }: CountdownProps) => {
     <div className="flex items-center gap-2">
       <div className="bg-[#121826] border border-slate-800 p-3 rounded-2xl flex gap-4 shadow-xl">
         <TimeUnit value={timeLeft.dias} label="Dias" />
-        <span className="text-slate-700 font-black self-center mt-[-10px]">:</span>
+        <span className="text-slate-700 font-black self-center -mt-2.5">:</span>
         <TimeUnit value={timeLeft.horas} label="Hrs" />
-        <span className="text-slate-700 font-black self-center mt-[-10px]">:</span>
+        <span className="text-slate-700 font-black self-center -mt-2.5">:</span>
         <TimeUnit value={timeLeft.min} label="Min" />
-        <span className="text-slate-700 font-black self-center mt-[-10px]">:</span>
+        <span className="text-slate-700 font-black self-center -mt-2.5">:</span>
         <TimeUnit value={timeLeft.seg} label="Seg" color="text-blue-500" />
       </div>
     </div>

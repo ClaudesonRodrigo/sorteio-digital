@@ -1,137 +1,187 @@
 "use client";
 
-import React, { useState, use } from "react"; // Importamos o 'use' para o React 19
-import { fetchFederalResult, extractWinnerNumber } from "@/services/lotteryService";
+import React, { useState, useEffect, use } from "react";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { Loader2, Trophy, Search, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { doc, getDoc, collection, getDocs, updateDoc, serverTimestamp } from "firebase/firestore";
+import { Trophy, ArrowLeft, Hash, User, Smartphone, AlertTriangle, Dices, Loader2, CheckCircle2, Globe, Info } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// Tipagem de Elite para o Next.js 16
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export default function CheckWinner({ params }: PageProps) {
-  // Desembrulhando o ID da Rifa conforme a nova regra do Next.js
-  const resolvedParams = use(params);
-  const raffleId = resolvedParams.id;
+export default function CheckRaffle({ params }: PageProps) {
+  const router = useRouter();
+  const { id } = use(params);
 
-  const [checking, setChecking] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [raffle, setRaffle] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [federalNumber, setFederalNumber] = useState(""); 
+  const [fullFederalNumber, setFullFederalNumber] = useState(""); 
   const [winner, setWinner] = useState<any>(null);
+  const [accumulated, setAccumulated] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [fetchingAPI, setFetchingAPI] = useState(false);
+  const [randomDrawing, setRandomDrawing] = useState(false);
 
-  const handleCheck = async () => {
-    setChecking(true);
+  useEffect(() => {
+    const fetchRaffle = async () => {
+      const snap = await getDoc(doc(db, "rifas", id));
+      if (snap.exists()) setRaffle({ id: snap.id, ...snap.data() });
+      setLoading(false);
+    };
+    fetchRaffle();
+  }, [id]);
+
+  const fetchFederalAPI = async () => {
+    setFetchingAPI(true);
     setWinner(null);
+    setAccumulated(false);
     try {
-      // 1. Busca os dados da Rifa
-      const raffleRef = doc(db, "rifas", raffleId);
-      const raffleSnap = await getDoc(raffleRef);
+      const response = await fetch("https://loteriascaixa-api.herokuapp.com/api/federal/latest");
+      const data = await response.json();
       
-      if (!raffleSnap.exists()) {
-        alert("Sorteio não encontrado no banco de dados.");
-        return;
-      }
-      const raffleData = raffleSnap.data();
+      const fullResult = data.dezenas[0]; 
+      setFullFederalNumber(fullResult);
 
-      // 2. Busca o resultado oficial da Loteria Federal
-      const fed = await fetchFederalResult();
-      if (!fed) {
-        alert("Não foi possível conectar com a API da Caixa. Tente novamente em instantes.");
-        return;
-      }
-
-      // Pegamos o 1º prêmio (index 0)
-      const firstPrize = fed.dezenas[0];
-      const winningTicket = extractWinnerNumber(firstPrize, raffleData.type);
-
-      // 3. Verifica se o número foi vendido (subcoleção sold_numbers)
-      const ticketsRef = collection(db, "rifas", raffleId, "sold_numbers");
-      const q = query(ticketsRef, where("number", "==", winningTicket));
-      const ticketSnap = await getDocs(q);
-
-      setResult({
-        concurso: fed.concurso,
-        firstPrize,
-        winningTicket,
-        drawDate: fed.data
-      });
-
-      if (!ticketSnap.empty) {
-        setWinner(ticketSnap.docs[0].data());
+      // PULO DO GATO: Lógica para Milhar (4 dígitos), Centena (3) ou Dezena (2)
+      let result = "";
+      if (raffle.totalTickets > 1000) {
+        result = fullResult.slice(-4); // Milhar: pega 4 dígitos
+      } else if (raffle.totalTickets > 100) {
+        result = fullResult.slice(-3); // Centena: pega 3 dígitos
       } else {
-        setWinner("ACUMULOU");
+        result = fullResult.slice(-2); // Dezena: pega 2 dígitos
       }
+      
+      setFederalNumber(result);
+      toast.success(`Resultado extraído: ${result}`);
     } catch (error) {
-      console.error("Erro na conferência:", error);
+      toast.error("Erro ao capturar dados da API.");
     } finally {
-      setChecking(false);
+      setFetchingAPI(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#0A0F1C] text-white p-8">
-      <div className="mx-auto max-w-2xl">
-        <Link href="/admin" className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors mb-8 font-bold uppercase text-xs">
-          <ArrowLeft size={16} /> Voltar ao Painel
-        </Link>
+  const handleCheckWinner = async () => {
+    if (!federalNumber) return toast.error("Preencha o número.");
+    setProcessing(true);
+    setWinner(null);
+    setAccumulated(false);
 
-        <div className="text-center">
-          <h1 className="text-4xl font-black uppercase tracking-tighter mb-2">Conferir Resultado</h1>
-          <p className="text-slate-500 mb-10">Sincronização oficial com a Loteria Federal.</p>
+    try {
+      const winnerSnap = await getDoc(doc(db, "rifas", id, "sold_numbers", federalNumber));
+      if (winnerSnap.exists()) {
+        setWinner({ number: federalNumber, ...winnerSnap.data() });
+        toast.success("Ganhador encontrado!");
+      } else {
+        setAccumulated(true);
+      }
+    } catch (error) {
+      toast.error("Erro na verificação.");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleRandomDraw = async () => {
+    setRandomDrawing(true);
+    const soldSnap = await getDocs(collection(db, "rifas", id, "sold_numbers"));
+    if (soldSnap.empty) return toast.error("Sem vendas aprovadas.");
+    
+    const soldTickets = soldSnap.docs.map(doc => ({ number: doc.id, ...doc.data() }));
+    const luckyWinner = soldTickets[Math.floor(Math.random() * soldTickets.length)];
+    
+    setTimeout(() => {
+      setWinner(luckyWinner);
+      setAccumulated(false);
+      setRandomDrawing(false);
+    }, 2500);
+  };
+
+  const handleFinalize = async () => {
+    if (!winner) return;
+    if (!confirm(`Finalizar sorteio?`)) return;
+
+    try {
+      await updateDoc(doc(db, "rifas", id), {
+        status: "FINISHED",
+        winner: {
+          name: winner.buyerName,
+          phone: winner.buyerPhone,
+          number: winner.number,
+          fullFederal: fullFederalNumber || "Sorteio Manual/Aleatório",
+          finalizedAt: serverTimestamp()
+        }
+      });
+      toast.success("Sorteio Finalizado!");
+      router.push("/admin");
+    } catch (error) {
+      toast.error("Erro ao finalizar.");
+    }
+  };
+
+  if (loading) return <div className="h-screen bg-[#0A0F1C] flex items-center justify-center text-white"><Loader2 className="animate-spin text-blue-500" size={48} /></div>;
+
+  return (
+    <div className="min-h-screen bg-[#0A0F1C] text-white p-6 md:p-10">
+      <div className="max-w-3xl mx-auto space-y-10">
+        <button onClick={() => router.push('/admin')} className="flex items-center gap-2 text-slate-500 hover:text-white uppercase font-black text-[10px] tracking-widest"><ArrowLeft size={16} /> Voltar</button>
+
+        <header className="space-y-2">
+          <h1 className="text-4xl font-black uppercase italic tracking-tighter text-blue-500">Conferir Resultado</h1>
+          <p className="text-slate-500 text-xs font-black uppercase">{raffle?.title}</p>
+        </header>
+
+        <div className="bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl space-y-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black uppercase italic flex items-center gap-2"><Hash className="text-blue-500" size={20} /> Loteria Federal</h2>
+            <button onClick={fetchFederalAPI} disabled={fetchingAPI} className="text-[10px] font-black uppercase bg-blue-600/10 text-blue-500 px-5 py-2.5 rounded-full border border-blue-500/20 flex items-center gap-2 hover:bg-blue-600 hover:text-white transition-all">
+              {fetchingAPI ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />} Buscar Automático
+            </button>
+          </div>
+
+          {fullFederalNumber && (
+            <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl flex items-center justify-between animate-in fade-in">
+              <span className="text-[10px] font-black uppercase text-slate-400">1º Prêmio Oficial:</span>
+              <span className="text-2xl font-black italic tracking-[0.2em]">{fullFederalNumber}</span>
+            </div>
+          )}
           
-          <button
-            onClick={handleCheck}
-            disabled={checking}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 py-6 rounded-3xl font-black text-xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-blue-900/10 active:scale-95"
-          >
-            {checking ? <Loader2 className="animate-spin" /> : <Search />}
-            {checking ? "BUSCANDO DADOS..." : "VERIFICAR GANHADOR"}
-          </button>
+          <div className="space-y-4">
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Número Ganhador Extraído</label>
+            <div className="flex flex-col md:flex-row gap-4">
+              <input 
+                type="text" 
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-6 text-4xl font-black text-center outline-none focus:border-blue-500 tracking-[0.5em]"
+                value={federalNumber}
+                onChange={(e) => setFederalNumber(e.target.value)}
+                placeholder="----"
+              />
+              <button onClick={handleCheckWinner} disabled={processing || !federalNumber} className="bg-blue-600 hover:bg-blue-700 px-10 py-6 rounded-2xl font-black uppercase text-xs">Verificar</button>
+            </div>
+          </div>
         </div>
 
-        {result && (
-          <div className="mt-12 space-y-6 animate-in fade-in zoom-in duration-500">
-            <div className="bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] text-center">
-              <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em] mb-4">
-                Resultado Federal - Concurso {result.concurso} ({result.drawDate})
-              </p>
-              
-              <div className="flex flex-col items-center">
-                <span className="text-slate-600 text-xs font-bold uppercase mb-1">1º Prêmio Extraído</span>
-                <span className="text-3xl font-mono text-slate-400 tracking-widest">{result.firstPrize}</span>
-              </div>
+        {accumulated && (
+          <div className="bg-orange-500/10 border border-orange-500/20 p-8 rounded-[2.5rem] flex flex-col items-center text-center space-y-6">
+            <AlertTriangle className="text-orange-500" size={48} />
+            <h2 className="text-2xl font-black uppercase italic text-orange-500">Sorteio Acumulou!</h2>
+            <button onClick={handleRandomDraw} disabled={randomDrawing} className="bg-orange-600 px-10 py-5 rounded-2xl font-black uppercase text-sm flex items-center gap-3"><Dices size={24} /> {randomDrawing ? "SORTEANDO..." : "SORTEIO ALEATÓRIO"}</button>
+          </div>
+        )}
 
-              <div className="mt-8 bg-blue-600/10 border border-blue-500/20 p-8 rounded-3xl">
-                <span className="text-blue-500 text-xs font-black uppercase tracking-widest block mb-2">Número Ganhador</span>
-                <span className="text-7xl font-black text-white">{result.winningTicket}</span>
-              </div>
+        {winner && (
+          <div className="bg-green-500/10 border border-green-500/20 p-10 rounded-[2.5rem] text-center space-y-8 animate-in zoom-in">
+            <Trophy className="text-green-500 mx-auto" size={72} />
+            <h2 className="text-4xl font-black uppercase italic text-green-500">Ganhador! Cota {winner.number}</h2>
+            <div className="bg-slate-900/50 p-8 rounded-3xl border border-slate-800 text-left grid grid-cols-2 gap-6">
+              <div><p className="text-[10px] text-slate-500 font-black uppercase">Nome</p><p className="text-xl font-bold truncate">{winner.buyerName}</p></div>
+              <div><p className="text-[10px] text-slate-500 font-black uppercase">Zap</p><p className="text-xl font-bold">{winner.buyerPhone}</p></div>
             </div>
-
-            {winner && (
-              <div className={cn(
-                "p-8 rounded-[2.5rem] text-center border animate-in slide-in-from-top-4 duration-700",
-                winner === "ACUMULOU" ? "bg-amber-500/10 border-amber-500/20" : "bg-green-500/10 border-green-500/20"
-              )}>
-                {winner === "ACUMULOU" ? (
-                  <div className="space-y-2">
-                    <p className="text-2xl font-black text-amber-500 uppercase">Acumulou!</p>
-                    <p className="text-slate-500 text-sm">Nenhum cliente comprou esta cota ainda.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <Trophy className="text-yellow-500" size={48} />
-                    <p className="text-2xl font-black text-green-500 uppercase">Temos um Ganhador!</p>
-                    <div className="bg-slate-900/50 p-4 rounded-2xl w-full">
-                      <p className="text-slate-400 text-xs font-bold uppercase mb-1">Contato do Sortudo</p>
-                      <p className="text-xl font-black text-white">{winner.buyerPhone}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <button onClick={handleFinalize} className="w-full bg-green-600 py-6 rounded-3xl font-black uppercase text-sm">Finalizar Sorteio</button>
           </div>
         )}
       </div>
