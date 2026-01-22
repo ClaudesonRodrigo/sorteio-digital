@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, use } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { RaffleSchema, RaffleFormData } from "@/schemas/raffle";
@@ -12,14 +12,14 @@ import { Loader2, Save, ArrowLeft, Calendar, Info, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function EditRaffle({ params }: PageProps) {
   const router = useRouter();
-  const { id } = params;
+  const { id } = use(params);
 
-  // 1. Tipagem direta no useForm garante que o handleSubmit saiba o que esperar
+  // useForm tipado explicitamente
   const {
     register,
     handleSubmit,
@@ -36,10 +36,9 @@ export default function EditRaffle({ params }: PageProps) {
       ticketPrice: 0,
       totalTickets: 0,
       drawDate: "",
-    },
+    }
   });
 
-  // 2. Carregamento dos dados com limpeza rigorosa
   useEffect(() => {
     const fetchRaffle = async () => {
       try {
@@ -53,16 +52,15 @@ export default function EditRaffle({ params }: PageProps) {
         const data = snap.data();
         const formattedDate = data.drawDate ? data.drawDate.slice(0, 16) : "";
 
-        // Resetamos apenas os campos que o RaffleFormData conhece (Memória Técnica)
+        // Reset rigoroso apenas com campos do Schema
         reset({
           title: data.title || "",
           status: data.status || "OPEN",
           type: data.type || "DEZENA",
           description: data.description || "",
-          ticketPrice: Number(data.ticketPrice) || 0,
-          totalTickets: Number(data.totalTickets) || 0,
+          ticketPrice: data.ticketPrice || 0,
+          totalTickets: data.totalTickets || 0,
           drawDate: formattedDate,
-          luckyNumbers: data.luckyNumbers || [],
         });
       } catch (err) {
         toast.error("Erro ao carregar dados.");
@@ -71,7 +69,7 @@ export default function EditRaffle({ params }: PageProps) {
     fetchRaffle();
   }, [id, reset, router]);
 
-  // 3. onSubmit tipado apenas com o dado de entrada (Solução da sua pesquisa)
+  // Função onSubmit tipada manualmente (Sem SubmitHandler importado)
   const onSubmit = async (data: RaffleFormData) => {
     try {
       const docRef = doc(db, "rifas", id);
@@ -98,11 +96,11 @@ export default function EditRaffle({ params }: PageProps) {
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest italic">ID: {id}</p>
         </header>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-[#121826] border border-slate-800 p-8 md:p-12 rounded-[2.5rem] shadow-2xl space-y-8">
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-[#121826] border border-slate-800 p-8 md:p-12 rounded-[2.5rem] shadow-2xl space-y-8 animate-in zoom-in">
           
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-slate-500 ml-1 italic tracking-widest">Título do Prémio</label>
-            <input {...register("title")} className={cn("w-full bg-slate-900 border rounded-2xl p-5 text-white outline-none transition-all", errors.title ? "border-red-500" : "border-slate-800 focus:border-blue-500")} />
+            <input {...register("title")} className={cn("w-full bg-slate-900 border rounded-2xl p-5 text-white outline-none transition-all", errors.title ? "border-red-500 shadow-sm" : "border-slate-800 focus:border-blue-500")} />
             {errors.title && <p className="text-red-500 text-[10px] font-bold uppercase ml-1 mt-1">{errors.title.message}</p>}
           </div>
 
@@ -128,7 +126,7 @@ export default function EditRaffle({ params }: PageProps) {
 
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-slate-500 ml-1 italic flex items-center gap-1 tracking-widest">Descrição <Info size={12} className="text-blue-500" /></label>
-            <textarea {...register("description")} rows={3} className={cn("w-full bg-slate-900 border rounded-2xl p-5 text-white outline-none transition-all resize-none", errors.description ? "border-red-500" : "border-slate-800 focus:border-blue-500")} />
+            <textarea {...register("description")} rows={3} className={cn("w-full bg-slate-900 border rounded-2xl p-5 text-white outline-none transition-all resize-none", errors.description ? "border-red-500 shadow-sm" : "border-slate-800 focus:border-blue-500")} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

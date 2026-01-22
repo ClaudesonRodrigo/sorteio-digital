@@ -1,17 +1,12 @@
-import { z } from "zod";
+import { z } from "zod"; // Importação correta entre chaves
 
-// 1. Definimos a interface manualmente para controle total
-export interface Settings {
-  pixKey: string;
-  whatsappNumber: string;
-  adminName: string;
-  maintenanceMode: boolean; // Sem 'undefined' ou 'optional'
-}
-
-// 2. O Schema valida se os dados seguem a interface
 export const SettingsSchema = z.object({
-  pixKey: z.string().min(1, "A chave Pix é obrigatória"),
-  whatsappNumber: z.string().min(1, "O WhatsApp é obrigatório"),
-  adminName: z.string().min(1, "O nome do admin é obrigatório"),
-  maintenanceMode: z.boolean(),
+  siteName: z.string().min(1, "Nome do site é obrigatório"),
+  contactPhone: z.string().min(1, "Telefone é obrigatório"),
+  pixKey: z.string().min(1, "Chave PIX é obrigatória"),
+  pixName: z.string().min(1, "Nome do titular é obrigatório"),
+  instagramUrl: z.string().optional(),
+  whatsappMessage: z.string().optional(),
 });
+
+export type SettingsFormData = z.infer<typeof SettingsSchema>;
