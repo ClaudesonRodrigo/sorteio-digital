@@ -11,8 +11,12 @@ import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner"; // Importamos o toast
 
+/**
+ * PROTOCOLO TRATOR - REGRA DE OURO:
+ * Inferimos o tipo diretamente do Schema para evitar o erro de 'id' ausente.
+ * Isso resolve o conflito entre o que o formulário envia e o que o Zod valida.
+ */
 type RaffleFormData = z.infer<typeof RaffleSchema>;
 
 export default function NewRaffle() {
@@ -22,12 +26,15 @@ export default function NewRaffle() {
   const [luckyNumbers, setLuckyNumbers] = useState<LuckyNumber[]>([]);
   const [copied, setCopied] = useState(false);
 
+  /**
+   * useForm devidamente tipado com a estrutura do Schema.
+   */
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RaffleFormData>({
     resolver: zodResolver(RaffleSchema) as any,
     defaultValues: {
       title: "", 
       description: "", 
-      ticketPrice: 0.10,
+      ticketPrice: 0.10, // Valor positivo para satisfazer a regra .positive() do Zod
       drawDate: "", 
       type: "CENTENA", 
       totalTickets: 1000, 
@@ -51,52 +58,46 @@ export default function NewRaffle() {
     setLuckyNumbers(updated);
   };
 
+  /**
+   * SubmitHandler agora recebe os dados exatamente como definidos no RaffleFormData.
+   */
   const onSubmit: SubmitHandler<RaffleFormData> = async (data) => {
     setLoading(true);
-    const toastId = toast.loading("A processar a criação do sorteio...");
-    
     try {
+      // Gravação no Firebase: Unimos os dados do form com o estado das cotas premiadas
       const docRef = await addDoc(collection(db, "rifas"), {
         ...data, 
         luckyNumbers, 
         createdAt: serverTimestamp(),
       });
       setCreatedId(docRef.id);
-      toast.success("Sorteio criado com sucesso! 🚀", { id: toastId });
     } catch (error) {
-      console.error(error);
-      toast.error("Falha ao salvar. Verifique a conexão.", { id: toastId });
+      console.error("Erro ao salvar sorteio:", error);
+      alert("Erro ao salvar. Verifique o console.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(shareLink);
-    setCopied(true);
-    toast.success("Link copiado para a área de transferência!");
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   if (createdId) {
     return (
       <div className="min-h-screen bg-[#0A0F1C] flex items-center justify-center p-6 text-white text-center">
-        <div className="max-w-md w-full bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl animate-in zoom-in duration-500">
+        <div className="max-w-md w-full bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl animate-in zoom-in duration-300">
           <div className="bg-green-500/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
             <Share2 className="text-green-500" size={32} />
           </div>
-          <h2 className="text-3xl font-black uppercase mb-2 italic">Pronto para Divulgar!</h2>
-          <div className="bg-white p-4 rounded-3xl inline-block mb-8 shadow-xl">
+          <h2 className="text-3xl font-black uppercase mb-2 italic">Sorteio Criado!</h2>
+          <div className="bg-white p-4 rounded-2xl inline-block mb-8 shadow-xl">
             <QRCodeSVG value={shareLink} size={180} />
           </div>
           <div className="bg-slate-900 p-4 rounded-xl flex items-center justify-between gap-2 text-left mb-6 border border-slate-800">
             <span className="text-xs text-slate-400 truncate flex-1">{shareLink}</span>
-            <button onClick={handleCopy}>
+            <button onClick={() => { navigator.clipboard.writeText(shareLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
               {copied ? <Check size={20} className="text-green-500" /> : <Copy size={20} className="text-blue-500" />}
             </button>
           </div>
           <button onClick={() => router.push("/admin")} className="w-full bg-slate-800 hover:bg-slate-700 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all">
-            <ArrowLeft size={18} /> Voltar à Gestão
+            <ArrowLeft size={18} /> Voltar ao Painel
           </button>
         </div>
       </div>
@@ -110,14 +111,15 @@ export default function NewRaffle() {
           <button onClick={() => router.back()} className="p-2 hover:bg-slate-800 rounded-full transition-all text-slate-400">
             <ArrowLeft size={24} />
           </button>
-          <h1 className="text-3xl font-black uppercase tracking-tighter text-white leading-none italic">Novo Sorteio</h1>
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-white leading-none italic">Nova Rifa</h1>
         </div>
 
+        {/* Debug Box: Essencial para identificar falhas de validação em tempo real */}
         {Object.keys(errors).length > 0 && (
           <div className="mb-6 bg-red-500/10 border border-red-500/50 p-6 rounded-3xl flex items-start gap-4 animate-in fade-in duration-500">
             <AlertCircle className="text-red-500 shrink-0" size={24} />
             <div className="text-left">
-              <p className="text-red-500 font-black uppercase text-xs tracking-widest leading-none mb-2">Campos Pendentes:</p>
+              <p className="text-red-500 font-black uppercase text-xs tracking-widest leading-none mb-2">Atenção aos campos:</p>
               <ul className="list-disc list-inside text-xs text-red-400 font-bold uppercase">
                 {Object.entries(errors).map(([key, err]: any) => (
                   <li key={key}>{key}: {err.message}</li>
@@ -130,7 +132,7 @@ export default function NewRaffle() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="bg-[#121826] p-8 rounded-[2.5rem] border border-slate-800 space-y-6 shadow-2xl text-left">
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Título da Rifa</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Título do Sorteio</label>
               <input 
                 {...register("title")} 
                 className={cn(
@@ -142,7 +144,7 @@ export default function NewRaffle() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Descrição e Regras</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Descrição / Detalhes</label>
               <textarea 
                 {...register("description")} 
                 rows={3}
@@ -150,7 +152,7 @@ export default function NewRaffle() {
                   "w-full bg-slate-900 border rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none",
                   errors.description ? "border-red-500" : "border-slate-800"
                 )} 
-                placeholder="Detalhes do sorteio..."
+                placeholder="Regras e detalhes do prêmio..."
               />
             </div>
 
@@ -181,7 +183,7 @@ export default function NewRaffle() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Formato</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2 tracking-[0.2em]">Formato da Cartela</label>
               <select {...register("type")} className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white appearance-none outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="DEZENA">Dezena (100 números)</option>
                 <option value="CENTENA">Centena (1.000 números)</option>
@@ -192,7 +194,7 @@ export default function NewRaffle() {
 
           <div className="bg-[#121826] p-8 rounded-[2.5rem] border border-slate-800 space-y-4 shadow-xl text-left">
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-black uppercase tracking-tighter flex items-center gap-2 text-white italic">
+              <h2 className="text-lg font-black uppercase tracking-tighter flex items-center gap-2 text-white">
                 <Gift className="text-blue-500" size={20} /> Cotas Premiadas
               </h2>
               <button 
@@ -212,7 +214,7 @@ export default function NewRaffle() {
                   onChange={(e) => updateLuckyNumber(idx, "number", e.target.value)} 
                 />
                 <input 
-                  placeholder="Prémio" 
+                  placeholder="Prêmio (Ex: R$ 50 no Pix)" 
                   className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm focus:border-blue-500 outline-none text-white" 
                   value={ln.prize} 
                   onChange={(e) => updateLuckyNumber(idx, "prize", e.target.value)} 
