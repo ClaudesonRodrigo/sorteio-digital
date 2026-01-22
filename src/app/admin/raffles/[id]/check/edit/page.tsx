@@ -26,7 +26,7 @@ export default function EditRaffle({ params }: PageProps) {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<RaffleFormData>({
-    resolver: zodResolver(RaffleSchema),
+   resolver: zodResolver(RaffleSchema) as any,
     mode: "onChange",
     defaultValues: {
       title: "",
