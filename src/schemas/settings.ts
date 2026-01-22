@@ -1,12 +1,12 @@
-import { z } from "zod"; // Importação correta entre chaves
+import { z } from "zod";
 
+// 1. O Schema valida se os dados seguem as regras de negócio
 export const SettingsSchema = z.object({
-  siteName: z.string().min(1, "Nome do site é obrigatório"),
-  contactPhone: z.string().min(1, "Telefone é obrigatório"),
-  pixKey: z.string().min(1, "Chave PIX é obrigatória"),
-  pixName: z.string().min(1, "Nome do titular é obrigatório"),
-  instagramUrl: z.string().optional(),
-  whatsappMessage: z.string().optional(),
+  pixKey: z.string().min(1, "A chave Pix é obrigatória"),
+  whatsappNumber: z.string().min(1, "O WhatsApp é obrigatório"),
+  adminName: z.string().min(1, "O nome do admin é obrigatório"),
+  maintenanceMode: z.boolean(),
 });
 
-export type SettingsFormData = z.infer<typeof SettingsSchema>;
+// 2. Exportamos o tipo inferido diretamente do Schema para evitar erros de importação
+export type Settings = z.infer<typeof SettingsSchema>;

@@ -5,14 +5,14 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { SettingsSchema, Settings } from "@/schemas/settings"; // Importando ambos
-import { Save, Loader2, Smartphone, Key, User, ShieldAlert } from "lucide-react";
+import { SettingsSchema, type Settings } from "@/schemas/settings"; 
+import { Save, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
 
   const { 
     register, 
@@ -20,7 +20,6 @@ export default function AdminSettings() {
     reset, 
     formState: { errors } 
   } = useForm<Settings>({
-    // @ts-ignore - Caso o VS Code ainda reclame por cache, mas o tipo está correto
     resolver: zodResolver(SettingsSchema),
     defaultValues: {
       pixKey: "",
@@ -36,7 +35,6 @@ export default function AdminSettings() {
         const docRef = doc(db, "settings", "global");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          // Garante que os dados do Firestore preencham a interface corretamente
           const data = docSnap.data();
           reset({
             pixKey: data.pixKey || "",
@@ -56,14 +54,12 @@ export default function AdminSettings() {
 
   const onSubmit: SubmitHandler<Settings> = async (data) => {
     setSaving(true);
-    setMessage("");
     try {
       await setDoc(doc(db, "settings", "global"), data);
-      setMessage("Configurações salvas com sucesso!");
-      setTimeout(() => setMessage(""), 3000);
+      toast.success("Configurações salvas com sucesso!");
     } catch (error) {
       console.error("Erro ao salvar:", error);
-      setMessage("Erro ao salvar configurações.");
+      toast.error("Erro ao salvar configurações.");
     } finally {
       setSaving(false);
     }
@@ -81,49 +77,52 @@ export default function AdminSettings() {
     <div className="min-h-screen bg-slate-900 text-white p-8">
       <div className="mx-auto max-w-2xl">
         <header className="mb-8">
-          <h1 className="text-3xl font-black">Configurações Globais</h1>
+          <h1 className="text-3xl font-black uppercase italic tracking-tighter text-blue-500">Configurações Globais</h1>
         </header>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="bg-slate-800 border border-slate-700 p-6 rounded-2xl space-y-4">
+          <div className="bg-slate-800 border border-slate-700 p-8 rounded-[2.5rem] space-y-6 shadow-2xl">
             
-            <div>
-              <label className="text-sm font-bold text-slate-400 block mb-2">Chave Pix</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase ml-1 tracking-widest italic">Chave Pix para Recebimento</label>
               <input
                 {...register("pixKey")}
                 className={cn(
-                  "w-full bg-slate-900 border border-slate-700 rounded-xl p-4 outline-none focus:border-blue-500",
+                  "w-full bg-slate-900 border border-slate-700 rounded-xl p-4 outline-none focus:border-blue-500 transition-all font-bold",
                   errors.pixKey && "border-red-500"
                 )}
               />
-              {errors.pixKey && <p className="text-red-500 text-xs mt-1">{errors.pixKey.message}</p>}
+              {errors.pixKey && <p className="text-red-500 text-[10px] font-bold uppercase ml-1">{errors.pixKey.message}</p>}
             </div>
 
-            <div>
-              <label className="text-sm font-bold text-slate-400 block mb-2">WhatsApp</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase ml-1 tracking-widest italic">WhatsApp de Suporte</label>
               <input
                 {...register("whatsappNumber")}
                 className={cn(
-                  "w-full bg-slate-900 border border-slate-700 rounded-xl p-4 outline-none focus:border-blue-500",
+                  "w-full bg-slate-900 border border-slate-700 rounded-xl p-4 outline-none focus:border-blue-500 transition-all font-bold",
                   errors.whatsappNumber && "border-red-500"
                 )}
               />
             </div>
 
-            <div>
-              <label className="text-sm font-bold text-slate-400 block mb-2">Nome do Admin</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase ml-1 tracking-widest italic">Nome do Administrador</label>
               <input
                 {...register("adminName")}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 outline-none focus:border-blue-500 transition-all font-bold"
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
-              <span className="font-bold text-sm">Modo Manutenção</span>
+            <div className="flex items-center justify-between p-5 bg-slate-900/50 rounded-2xl border border-slate-700/50 transition-all hover:bg-slate-900">
+              <div className="flex flex-col">
+                <span className="font-black text-xs uppercase italic tracking-tighter">Modo Manutenção</span>
+                <span className="text-[9px] text-slate-500 font-bold uppercase">Bloqueia o acesso de clientes ao site</span>
+              </div>
               <input 
                 type="checkbox" 
                 {...register("maintenanceMode")}
-                className="w-6 h-6 rounded border-slate-700 bg-slate-900 text-blue-600"
+                className="w-6 h-6 rounded-lg border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer"
               />
             </div>
           </div>
@@ -131,10 +130,9 @@ export default function AdminSettings() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-lg transition-all"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 rounded-3xl font-black text-sm uppercase italic tracking-widest transition-all shadow-xl shadow-blue-900/20 active:scale-95"
           >
-            {saving ? <Loader2 className="animate-spin" /> : <Save className="inline mr-2" />}
-            SALVAR ALTERAÇÕES
+            {saving ? <Loader2 className="animate-spin mx-auto" /> : "SALVAR CONFIGURAÇÕES"}
           </button>
         </form>
       </div>
