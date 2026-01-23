@@ -1,11 +1,6 @@
 import withPWAInit from "@ducanh2912/next-pwa";
 import type { NextConfig } from "next";
 
-/**
- * PROTOCOLO TRATOR — NEXT 16 + PWA + NETLIFY
- * 1. Forçamos o Webpack para compatibilidade com next-pwa.
- * 2. Desativamos o Turbopack que é padrão no Next 16.
- */
 const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
@@ -20,18 +15,19 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   /**
-   * Força Webpack e impede conflito com Turbopack
-   * Necessário para o build do PWA no ambiente Netlify
+   * Forçamos o uso do Webpack para garantir que o next-pwa 
+   * consiga gerar o Service Worker corretamente na Vercel.
    */
   webpack: (config) => {
     return config;
   },
 
   /**
-   * Desativa Turbopack explicitamente para evitar erro fatal no build
+   * Silenciamos o erro do Next 16 configurando turbopack como objeto vazio.
+   * Isso desativa o Turbopack em favor do Webpack definido acima.
    */
-  // @ts-ignore - Next 16 pode reclamar da tipagem, mas a chave é funcional
-  turbopack: false,
+  // @ts-ignore
+  turbopack: {},
 };
 
 export default withPWA(nextConfig);

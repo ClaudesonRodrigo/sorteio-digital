@@ -150,7 +150,7 @@ export default function RaffleDetails({ params }: PageProps) {
         {!isFinished && selected.length > 0 && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-2xl z-50">
             {showCartDetails && (
-              <div className="bg-[#121826] border border-white/10 rounded-t-[2.5rem] p-6 pb-10 mb-[-2rem] shadow-2xl">
+              <div className="bg-[#121826] border border-white/10 rounded-t-[2.5rem] p-6 pb-10 -mb-8 shadow-2xl">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Números Selecionados</h4>
                   <button onClick={handleClearAll} className="text-red-500 text-[10px] font-black uppercase flex items-center gap-1">
@@ -189,7 +189,7 @@ export default function RaffleDetails({ params }: PageProps) {
         )}
 
         {showCheckout && (
-          <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-60 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
             <div className="relative w-full max-w-md">
               <button onClick={() => setShowCheckout(false)} className="absolute -top-12 right-0 text-white font-black uppercase text-[10px] bg-red-600 px-4 py-2 rounded-full">FECHAR [X]</button>
               {/* PASSAMOS O cambistaId PARA O MODAL */}
