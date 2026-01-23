@@ -14,7 +14,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Sorteio Digital | Aracaju",
+  title: "Sorteio Digital",
   description: "Plataforma profissional de sorteios e rifas online",
   manifest: "/manifest.json",
   appleWebApp: {
@@ -22,34 +22,18 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Sorteio Digital",
   },
-  formatDetection: {
-    telephone: false,
-  },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <head>
-        <link rel="apple-touch-icon" href="icon-192x192.png" />
-      </head>
       <body className={`${inter.className} bg-[#0A0F1C] antialiased`}>
-        {children}
-        <Toaster 
-          position="top-right" 
-          toastOptions={{
-            style: { 
-              background: '#121826', 
-              color: '#fff', 
-              border: '1px solid #1e293b',
-              borderRadius: '1.5rem'
-            },
-          }} 
-        />
+        {/* Layout limpo: o header agora é gerenciado pelas páginas internas */}
+        <main>
+          {children}
+        </main>
+
+        <Toaster position="top-right" />
       </body>
     </html>
   );

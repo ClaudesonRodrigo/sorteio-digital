@@ -7,9 +7,10 @@ import { NumberGrid } from '@/components/NumberGrid';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { Countdown } from '@/components/Countdown';
 import { Raffle } from '@/schemas/raffle';
-import { Loader2, Ticket, Trophy, ArrowLeft } from 'lucide-react';
+import { Loader2, Ticket, Trophy, ArrowLeft, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -59,9 +60,24 @@ export default function RaffleDetails({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-[#0A0F1C] text-white p-4 md:p-6 pb-44">
       <div className="mx-auto max-w-5xl">
-        <button onClick={() => router.back()} className="mb-6 flex items-center gap-2 text-slate-500 font-bold uppercase text-[10px] tracking-widest hover:text-blue-500 transition-colors">
-          <ArrowLeft size={16} /> Voltar
-        </button>
+        
+        {/* BARRA DE TOPO: Apenas na página da rifa */}
+        <div className="flex items-center justify-between mb-8">
+          <button 
+            onClick={() => router.push("/")} 
+            className="flex items-center gap-2 text-slate-500 font-black uppercase text-[10px] tracking-widest hover:text-blue-500 transition-colors"
+          >
+            <ArrowLeft size={16} /> Início
+          </button>
+
+          <Link 
+            href="/tickets" 
+            className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2 rounded-full text-[10px] font-black uppercase text-slate-300 hover:border-blue-500 transition-all shadow-lg"
+          >
+            <Search size={14} className="text-blue-500" />
+            Meus Números
+          </Link>
+        </div>
 
         <header className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-800 pb-10">
           <div className="text-left space-y-4">
@@ -82,11 +98,12 @@ export default function RaffleDetails({ params }: PageProps) {
           
           {!isFinished && (
             <div className="bg-[#121826] p-5 md:p-6 rounded-3xl border border-slate-800 flex items-center gap-4">
-              {/* CORREÇÃO: Usando classes Tailwind para tamanho responsivo */}
               <Ticket className="text-blue-500 w-7 h-7 md:w-8 md:h-8" />
               <div className="text-left">
                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Cota</p>
-                <p className="text-2xl md:text-3xl font-black text-blue-500 italic">{raffle?.ticketPrice?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                <p className="text-2xl md:text-3xl font-black text-blue-500 italic">
+                  {Number(raffle?.ticketPrice || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
               </div>
             </div>
           )}
@@ -95,7 +112,6 @@ export default function RaffleDetails({ params }: PageProps) {
         {isFinished ? (
           <div className="space-y-12 animate-in fade-in duration-700 text-center">
             <div className="bg-green-500/10 border border-green-500/20 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3rem] space-y-8">
-              {/* CORREÇÃO: Usando classes Tailwind para tamanho responsivo */}
               <Trophy className="text-green-500 mx-auto w-20 h-20 md:w-24 md:h-24" />
               <h2 className="text-3xl md:text-5xl font-black uppercase italic text-green-500 tracking-tighter">Ganhador!</h2>
               <div className="inline-block bg-green-500 text-black px-8 md:px-10 py-3 md:py-4 rounded-full text-2xl md:text-4xl font-black italic tracking-widest shadow-xl">

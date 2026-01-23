@@ -24,7 +24,7 @@ import {
   Plus,
   Edit,
   Trash2,
-  Trophy, // Ícone oficial da Lucide
+  Trophy, 
   Loader2,
   Eye,
   Share2,
@@ -133,12 +133,8 @@ export default function AdminDashboard() {
 
   const handleShare = (raffleId: string, title: string) => {
     const url = `${window.location.origin}/raffle/${raffleId}`;
-    if (navigator.share) {
-      navigator.share({ title, url }).catch(() => toast.error("Erro ao compartilhar"));
-    } else {
-      navigator.clipboard.writeText(url);
-      toast.success("Link copiado!");
-    }
+    const text = `🚀 *SORTEIO NO AR!* \n\n🏆 ${title}\n\nGaranta sua cota aqui: \n🔗 ${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const filteredOrders = orders.filter(o => 
@@ -152,7 +148,6 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-[#0A0F1C] text-white p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-10">
         
-        {/* Header Superior */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h1 className="text-4xl font-black uppercase italic tracking-tighter text-blue-500">Dashboard Admin</h1>
@@ -166,7 +161,6 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {/* Cards de Estatísticas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard title="Total Pedidos" value={stats.totalOrders} icon={<ShoppingBag size={24} />} color="blue" />
           <StatCard title="Faturamento" value={stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} icon={<DollarSign size={24} />} color="green" />
@@ -174,18 +168,32 @@ export default function AdminDashboard() {
           <StatCard title="Aguardando Pix" value={stats.pendingCount} icon={<Clock size={24} />} color="orange" />
         </div>
 
-        {/* Gerenciar Rifas */}
         <div className="space-y-6">
           <h2 className="text-xl font-black uppercase italic flex items-center gap-3">
             <Ticket className="text-blue-500" size={24} /> Gerenciar Sorteios
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {raffles.map((raffle) => (
-              <div key={raffle.id} className="bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] hover:border-slate-700 transition-all relative group">
+              <div key={raffle.id} className={cn(
+                "bg-[#121826] border p-8 rounded-[2.5rem] hover:border-slate-700 transition-all relative group",
+                raffle.status === "FINISHED" ? "border-green-500/20 opacity-90" : "border-slate-800"
+              )}>
                 <div className="absolute top-6 right-6 flex gap-2">
-                  <button onClick={() => router.push(`/admin/raffles/${raffle.id}/edit`)} className="p-2 text-slate-500 hover:text-white transition-colors bg-slate-900 rounded-lg"><Edit size={16} /></button>
+                  {/* TRAVA DE SEGURANÇA: Não permite editar se estiver finalizada */}
+                  {raffle.status !== "FINISHED" ? (
+                    <button 
+                      onClick={() => router.push(`/admin/raffles/${raffle.id}/edit`)} 
+                      className="p-2 text-slate-500 hover:text-white transition-colors bg-slate-900 rounded-lg border border-slate-800"
+                    >
+                      <Edit size={16} />
+                    </button>
+                  ) : (
+                    <div className="bg-green-600 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-green-900/20">
+                      <CheckCircle2 size={10} /> Finalizada
+                    </div>
+                  )}
                 </div>
-                <h3 className="text-xl font-black uppercase italic mb-1 pr-12 tracking-tight">{raffle.title}</h3>
+                <h3 className="text-xl font-black uppercase italic mb-1 pr-12 tracking-tight line-clamp-1">{raffle.title}</h3>
                 
                 <div className="grid grid-cols-3 gap-2 my-6">
                   <button onClick={() => router.push(`/raffle/${raffle.id}`)} className="flex flex-col items-center gap-2 bg-slate-900 border border-slate-800 p-3 rounded-2xl text-slate-400 hover:text-blue-500 transition-all"><Eye size={18} /><span className="text-[8px] font-black uppercase">Ver</span></button>
@@ -195,16 +203,18 @@ export default function AdminDashboard() {
 
                 <button 
                   onClick={() => router.push(`/admin/raffles/${raffle.id}/check`)}
-                  className="w-full bg-blue-600/10 border border-blue-600/20 hover:bg-blue-600 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all font-black uppercase text-[10px] tracking-widest text-blue-500 hover:text-white"
+                  className={cn(
+                    "w-full py-4 rounded-2xl flex items-center justify-center gap-2 transition-all font-black uppercase text-[10px] tracking-widest shadow-lg",
+                    raffle.status === "FINISHED" ? "bg-green-600 text-white" : "bg-blue-600/10 border border-blue-600/20 text-blue-500 hover:bg-blue-600 hover:text-white"
+                  )}
                 >
-                  <Trophy size={14} /> Verificar Sorteio
+                  <Trophy size={14} /> {raffle.status === "FINISHED" ? "Ver Ganhador" : "Verificar Sorteio"}
                 </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Listagem de Aprovação */}
         <div className="bg-[#121826] border border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
           <div className="p-8 border-b border-slate-800 bg-slate-900/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h2 className="text-lg font-black uppercase italic flex items-center gap-3 tracking-tight">
@@ -267,7 +277,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Modal QR Code */}
         {printRaffle && (
           <div className="fixed inset-0 z-100 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
             <div className="bg-white text-black p-10 rounded-[3rem] w-full max-w-sm text-center relative">
