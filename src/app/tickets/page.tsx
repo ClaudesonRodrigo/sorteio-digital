@@ -16,7 +16,7 @@ interface Order {
   selectedNumbers: string[];
   totalValue: number;
   raffleTitle: string;
-  raffleId: string;
+  raffleId: string; // Crucial para o filtro de segurança
   status: "PENDENTE" | "PAGO" | "CANCELADO";
   createdAt: any;
 }
