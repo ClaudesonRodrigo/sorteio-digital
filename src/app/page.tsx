@@ -2,43 +2,31 @@
 
 import { RaffleCard } from "@/components/RaffleCard";
 import { useRaffles } from "@/hooks/useRaffles";
-import { Loader2, Ticket } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Raffle } from "@/schemas/raffle";
 
 export default function Home() {
   const { raffles, loading } = useRaffles();
 
   return (
-    <main className="min-h-screen bg-[#0A0F1C] p-6 md:p-12 text-white">
-      <div className="mx-auto max-w-7xl space-y-12">
-        
-        {/* Header de Elite */}
-        <header className="animate-in fade-in slide-in-from-top-4 duration-700">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-900/40">
-              <Ticket size={32} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter leading-none">
-                Sorteios <span className="text-blue-500">Ativos</span>
-              </h1>
-              <p className="text-slate-500 mt-2 font-bold uppercase text-[10px] tracking-[0.3em]">
-                Resultados baseados na Loteria Federal oficial
-              </p>
-            </div>
-          </div>
-          <div className="h-1 w-20 bg-blue-600 rounded-full" />
+    <main className="min-h-screen bg-[#0A0F1C] p-4 md:p-8">
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-8 md:mb-12 mt-12 md:mt-0 px-2 md:px-0">
+          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight uppercase italic leading-none">
+            Sorteios <span className="text-blue-600">Ativos</span>
+          </h1>
+          <p className="text-slate-500 mt-2 text-xs md:text-sm font-medium uppercase tracking-widest">
+            Resultados baseados na Loteria Federal oficial.
+          </p>
         </header>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 animate-pulse">
-            <Loader2 className="animate-spin text-blue-500 mb-4" size={48} />
-            <p className="text-slate-500 font-black uppercase text-xs tracking-widest">
-              Sincronizando com o banco...
-            </p>
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="animate-spin text-blue-600" size={48} />
+            <p className="mt-4 text-slate-500 font-bold uppercase text-[10px] tracking-widest">Buscando prêmios...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 animate-in fade-in zoom-in duration-500">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
             {raffles.map((raffle: Raffle, index: number) => (
               <RaffleCard key={raffle.id || `raffle-${index}`} raffle={raffle} />
             ))}
@@ -46,11 +34,8 @@ export default function Home() {
         )}
 
         {!loading && raffles.length === 0 && (
-          <div className="rounded-[3rem] border-2 border-dashed border-slate-800 p-20 text-center animate-in fade-in duration-1000">
-            <Ticket className="mx-auto text-slate-800 mb-6" size={64} />
-            <p className="text-slate-500 font-black uppercase text-xs tracking-widest italic">
-              Nenhum sorteio disponível no momento.
-            </p>
+          <div className="rounded-[2.5rem] border-2 border-dashed border-slate-800 p-12 text-center mt-10">
+            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">Nenhum sorteio encontrado no momento.</p>
           </div>
         )}
       </div>
