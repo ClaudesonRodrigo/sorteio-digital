@@ -15,6 +15,10 @@ export const RaffleCard = ({ raffle, className }: RaffleCardProps) => {
   const router = useRouter();
   const isOpen = raffle.status === "OPEN";
 
+  // Cálculo de Progresso (Baseado no soldCount ou 0 por padrão)
+  const soldCount = raffle.soldCount || 0;
+  const progress = Math.min((soldCount / raffle.totalTickets) * 100, 100);
+
   const formatDate = (date: any) => {
     if (!date) return "--/--/--";
     if (typeof date === "string") return date.split("-").reverse().join("/");
@@ -52,13 +56,27 @@ export const RaffleCard = ({ raffle, className }: RaffleCardProps) => {
         )}
       </div>
 
-      <div className="mb-8">
+      <div className="mb-6">
         <h3 className="text-2xl font-black text-white line-clamp-1 uppercase italic tracking-tighter group-hover:text-blue-500 transition-colors">
           {raffle.title}
         </h3>
         <p className="mt-3 text-sm text-slate-500 font-medium line-clamp-2 italic leading-relaxed">
           {raffle.description}
         </p>
+      </div>
+
+      {/* BARRA DE PROGRESSO */}
+      <div className="mb-8 space-y-2">
+        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">
+          <span>Progresso de Vendas</span>
+          <span className="text-blue-500">{progress.toFixed(1)}%</span>
+        </div>
+        <div className="h-3 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+          <div 
+            className="h-full bg-blue-600 transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -90,7 +108,6 @@ export const RaffleCard = ({ raffle, className }: RaffleCardProps) => {
         </div>
       </div>
       
-      {/* Detalhe de luz no fundo */}
       <div className="absolute -bottom-12 -right-12 h-32 w-32 bg-blue-600/5 blur-[50px] rounded-full group-hover:bg-blue-600/10 transition-all" />
     </div>
   );

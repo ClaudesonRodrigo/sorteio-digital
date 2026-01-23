@@ -16,6 +16,7 @@ export interface Raffle {
   totalTickets: number;
   status: "OPEN" | "DRAWING" | "FINISHED" | "CANCELED";
   luckyNumbers?: LuckyNumber[];
+  soldCount?: number; // Novo campo para progresso na Home
 }
 
 export const RaffleSchema = z.object({
@@ -24,7 +25,6 @@ export const RaffleSchema = z.object({
   status: z.enum(["OPEN", "DRAWING", "FINISHED", "CANCELED"]),
   type: z.enum(["DEZENA", "CENTENA", "MILHAR"]),
   
-  // CORREÇÃO: O Zod exige o objeto { invalid_type_error: ... } para inferir como 'number'
   ticketPrice: z.coerce
   .number()
   .refine((val) => !isNaN(val), "Preço inválido")
@@ -34,7 +34,6 @@ export const RaffleSchema = z.object({
   .number()
   .refine((val) => Number.isInteger(val), "Deve ser um número inteiro")
   .positive("Quantidade inválida"),
-
 
   drawDate: z.string().min(1, "Data obrigatória"),
   luckyNumbers: z.array(z.any()).optional(),
