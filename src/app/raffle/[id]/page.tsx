@@ -6,11 +6,11 @@ import { doc, onSnapshot, collection } from "firebase/firestore";
 import { NumberGrid } from '@/components/NumberGrid';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { Countdown } from '@/components/Countdown';
-import { Raffle } from '@/schemas/raffle';
-import { Loader2, Ticket, Trophy, ArrowLeft, Search, Trash2, X } from 'lucide-react';
+import { Loader2, Ticket, Trophy, ArrowLeft, Search, Trash2, X, Share2, ShieldCheck, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useRouter, useSearchParams } from 'next/navigation'; // Adicionado useSearchParams
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -18,7 +18,7 @@ interface PageProps {
 
 export default function RaffleDetails({ params }: PageProps) {
   const router = useRouter();
-  const searchParams = useSearchParams(); // Hook para ler a URL
+  const searchParams = useSearchParams();
   const resolvedParams = use(params);
   const raffleId = resolvedParams.id;
   
@@ -62,51 +62,77 @@ export default function RaffleDetails({ params }: PageProps) {
   };
 
   const handleClearAll = () => {
-    if (confirm("Remover todos os números?")) {
+    if (confirm("Remover todos os números selecionados?")) {
       setSelected([]);
       setShowCartDetails(false);
     }
   };
 
-  if (loading) return <div className="h-screen bg-[#0A0F1C] flex items-center justify-center text-white"><Loader2 className="animate-spin text-blue-500" size={48} /></div>;
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success("Link do sorteio copiado!");
+  };
+
+  if (loading) return (
+    <div className="h-screen bg-[#0A0F1C] flex items-center justify-center">
+      <Loader2 className="animate-spin text-blue-500" size={48} />
+    </div>
+  );
 
   const isFinished = raffle?.status === "FINISHED";
 
   return (
-    <div className="min-h-screen bg-[#0A0F1C] text-white p-4 md:p-6 pb-44">
-      <div className="mx-auto max-w-5xl">
-        
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={() => router.push("/")} className="flex items-center gap-2 text-slate-500 font-black uppercase text-[10px] tracking-widest hover:text-blue-500 transition-colors">
-            <ArrowLeft size={16} /> Início
-          </button>
-
-          <Link href="/tickets" className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2 rounded-full text-[10px] font-black uppercase text-slate-300 hover:border-blue-500 transition-all shadow-lg">
-            <Search size={14} className="text-blue-500" />
-            Meus Números
+    <div className="min-h-screen bg-[#0A0F1C] text-white pb-44">
+      {/* NAVEGAÇÃO DE ELITE - VOLTA PARA A VITRINE */}
+      <nav className="sticky top-0 z-50 bg-[#0A0F1C]/80 backdrop-blur-md border-b border-slate-800/50 px-4 md:px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <Link 
+            href="/" 
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
+          >
+            <div className="bg-slate-900 p-2 rounded-xl border border-slate-800 group-hover:border-blue-500 transition-all">
+              <ChevronLeft size={18} />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest hidden md:block italic">Ver Vitrine de Prêmios</span>
           </Link>
-        </div>
 
-        <header className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-800 pb-10">
+          <div className="flex items-center gap-4">
+            <Link 
+              href="/tickets" 
+              className="flex items-center gap-2 bg-blue-600/10 text-blue-500 px-4 py-2 rounded-xl border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all active:scale-95 shadow-lg"
+            >
+              <Search size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Meus Números</span>
+            </Link>
+            <button 
+              onClick={handleShare}
+              className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl hover:text-blue-500 transition-all shadow-md"
+            >
+              <Share2 size={18} />
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <div className="mx-auto max-w-5xl px-4 md:px-6 mt-8 md:mt-12">
+        <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-800 pb-10">
           <div className="text-left space-y-4 flex-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className={cn(
-                "text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest",
-                isFinished ? "bg-green-600 text-white" : "bg-blue-600 text-white animate-pulse"
-              )}>
-                {isFinished ? "Sorteio Realizado" : "Sorteio Oficial"}
+            <div className="inline-flex items-center gap-2 bg-blue-600/10 border border-blue-500/20 px-4 py-2 rounded-full mb-2">
+              <ShieldCheck className="text-blue-500" size={16} />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 italic">
+                {isFinished ? "Sorteio Encerrado" : "Sorteio Oficial Aracaju"}
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-none">{raffle?.title}</h1>
+            <h1 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter leading-none">{raffle?.title}</h1>
             
             {!isFinished && (
-              <div className="max-w-md space-y-2 mt-4">
+              <div className="max-w-md space-y-2 mt-6">
                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">
-                  <span>Cotas Vendidas</span>
-                  <span className="text-blue-500">{progress.toFixed(1)}%</span>
+                  <span>Progresso de Vendas</span>
+                  <span className="text-blue-500 font-black italic">{progress.toFixed(1)}%</span>
                 </div>
-                <div className="h-3 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-                  <div className="h-full bg-blue-600 transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
+                <div className="h-3 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800 shadow-inner">
+                  <div className="h-full bg-blue-600 transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(37,99,235,0.5)]" style={{ width: `${progress}%` }} />
                 </div>
               </div>
             )}
@@ -115,11 +141,13 @@ export default function RaffleDetails({ params }: PageProps) {
           </div>
           
           {!isFinished && (
-            <div className="bg-[#121826] p-5 md:p-6 rounded-3xl border border-slate-800 flex items-center gap-4 shadow-2xl">
-              <Ticket className="text-blue-500 w-7 h-7 md:w-8 md:h-8" />
+            <div className="bg-[#121826] p-6 rounded-[2.5rem] border border-slate-800 flex items-center gap-5 shadow-2xl transition-transform hover:scale-105">
+              <div className="bg-blue-600/10 p-3 rounded-2xl">
+                <Ticket className="text-blue-500 w-8 h-8" />
+              </div>
               <div className="text-left">
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Cota</p>
-                <p className="text-2xl md:text-3xl font-black text-blue-500 italic">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Cota Individual</p>
+                <p className="text-3xl font-black text-white italic tracking-tighter">
                   {Number(raffle?.ticketPrice || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </p>
               </div>
@@ -128,78 +156,105 @@ export default function RaffleDetails({ params }: PageProps) {
         </header>
 
         {isFinished ? (
-          <div className="text-center bg-green-500/10 border border-green-500/20 p-12 rounded-[3rem] space-y-8">
-            <Trophy className="text-green-500 mx-auto w-24 h-24" />
-            <h2 className="text-5xl font-black uppercase italic text-green-500 tracking-tighter">Ganhador!</h2>
-            <div className="inline-block bg-green-500 text-black px-10 py-4 rounded-full text-4xl font-black italic shadow-xl">
+          <div className="text-center bg-green-500/5 border border-green-500/20 p-16 rounded-[3rem] space-y-8 shadow-2xl animate-in zoom-in-95">
+            <Trophy className="text-green-500 mx-auto w-24 h-24 drop-shadow-[0_0_20px_rgba(34,197,94,0.3)]" />
+            <div className="space-y-2">
+              <h2 className="text-5xl font-black uppercase italic text-green-500 tracking-tighter">Ganhador Revelado!</h2>
+              <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Parabéns ao novo dono do prêmio</p>
+            </div>
+            <div className="inline-block bg-green-500 text-black px-12 py-5 rounded-full text-5xl font-black italic shadow-[0_10px_30px_rgba(34,197,94,0.4)]">
               COTA {raffle?.winner?.number}
             </div>
           </div>
         ) : (
-          <NumberGrid 
-            totalTickets={raffle?.totalTickets || 0} 
-            soldTickets={soldNumbers} 
-            pendingTickets={pendingNumbers} 
-            selectedNumbers={selected} 
-            onSelect={handleSelect} 
-            onSelectMultiple={(nums) => setSelected(prev => [...new Set([...prev, ...nums])])} 
-          />
+          <div className="bg-[#121826] border border-slate-800 rounded-[3rem] p-2 md:p-8 shadow-2xl relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
+             <NumberGrid 
+                totalTickets={raffle?.totalTickets || 0} 
+                soldTickets={soldNumbers} 
+                pendingTickets={pendingNumbers} 
+                selectedNumbers={selected} 
+                onSelect={handleSelect} 
+                onSelectMultiple={(nums) => setSelected(prev => [...new Set([...prev, ...nums])])} 
+              />
+          </div>
         )}
 
-        {/* CARRINHO COM SUPORTE A CAMBISTA */}
+        {/* CARRINHO DE ELITE - 100% PRESERVADO */}
         {!isFinished && selected.length > 0 && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-2xl z-50">
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[94%] max-w-2xl z-50 animate-in slide-in-from-bottom-10 duration-500">
             {showCartDetails && (
-              <div className="bg-[#121826] border border-white/10 rounded-t-[2.5rem] p-6 pb-10 -mb-8 shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Números Selecionados</h4>
-                  <button onClick={handleClearAll} className="text-red-500 text-[10px] font-black uppercase flex items-center gap-1">
-                    <Trash2 size={14} /> Limpar
+              <div className="bg-[#121826] border-x border-t border-white/10 rounded-t-[3rem] p-8 pb-12 -mb-8 shadow-2xl backdrop-blur-xl">
+                <div className="flex items-center justify-between mb-6">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">Cotas Selecionadas</h4>
+                  <button onClick={handleClearAll} className="bg-red-500/10 text-red-500 px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-2 hover:bg-red-500 hover:text-white transition-all">
+                    <Trash2 size={14} /> Limpar Tudo
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                   {selected.map(num => (
-                    <div key={num} className="bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl flex items-center gap-2">
-                      <span className="font-mono font-bold text-sm text-blue-500">{num}</span>
-                      <X size={14} className="text-slate-600 cursor-pointer" onClick={() => handleSelect(num)} />
+                    <div key={num} className="bg-slate-900 border border-slate-800 px-4 py-2.5 rounded-2xl flex items-center gap-3 group hover:border-blue-500 transition-all">
+                      <span className="font-black text-sm text-blue-500 italic">{num}</span>
+                      <X size={14} className="text-slate-600 cursor-pointer hover:text-red-500 transition-colors" onClick={() => handleSelect(num)} />
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="bg-[#121826]/95 backdrop-blur-xl border border-white/10 rounded-[3rem] p-5 md:p-8 flex items-center justify-between shadow-2xl relative z-10">
-              <button onClick={() => setShowCartDetails(!showCartDetails)} className="text-left outline-none">
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Cotas {showCartDetails ? '▲' : '▼'}</p>
-                <p className="text-xl md:text-3xl font-black italic">{selected.length}</p>
-                {cambistaId && <p className="text-[8px] text-blue-500 font-black uppercase mt-1">Ref: {cambistaId}</p>}
+            <div className="bg-[#121826]/95 backdrop-blur-2xl border border-white/10 rounded-[3rem] p-6 md:p-10 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative z-10">
+              <button onClick={() => setShowCartDetails(!showCartDetails)} className="text-left outline-none group">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1 italic">
+                  Sua Reserva {showCartDetails ? '▲' : '▼'}
+                </p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-3xl md:text-5xl font-black italic tracking-tighter text-white">{selected.length}</p>
+                  <span className="text-[10px] font-bold text-slate-600 uppercase">Cotas</span>
+                </div>
+                {cambistaId && (
+                  <div className="flex items-center gap-1 mt-2 bg-blue-600/10 px-2 py-0.5 rounded-lg w-fit border border-blue-500/10">
+                    <span className="text-[8px] text-blue-500 font-black uppercase italic tracking-widest">Ref: {cambistaId}</span>
+                  </div>
+                )}
               </button>
 
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Total</p>
-                  <p className="text-xl md:text-3xl font-black text-[#00E676] italic">
+              <div className="flex items-center gap-8">
+                <div className="text-right hidden sm:block">
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1 italic">Total a Pagar</p>
+                  <p className="text-3xl font-black text-[#00E676] italic tracking-tighter">
                     {(selected.length * (raffle?.ticketPrice || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </p>
                 </div>
-                <button onClick={() => setShowCheckout(true)} className="bg-blue-600 px-10 py-4 rounded-2xl font-black uppercase text-sm shadow-xl active:scale-95 transition-all">Pagar</button>
+                <button 
+                  onClick={() => setShowCheckout(true)} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-5 rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] shadow-[0_10px_25px_rgba(37,99,235,0.4)] active:scale-95 transition-all"
+                >
+                  Pagar Agora
+                </button>
               </div>
             </div>
           </div>
         )}
 
         {showCheckout && (
-          <div className="fixed inset-0 z-60 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="relative w-full max-w-md">
-              <button onClick={() => setShowCheckout(false)} className="absolute -top-12 right-0 text-white font-black uppercase text-[10px] bg-red-600 px-4 py-2 rounded-full">FECHAR [X]</button>
-              {/* PASSAMOS O cambistaId PARA O MODAL */}
+          <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300">
+            <div className="relative w-full max-w-md shadow-2xl">
+              <button 
+                onClick={() => setShowCheckout(false)} 
+                className="absolute -top-14 right-0 text-white font-black uppercase text-[10px] tracking-widest bg-slate-900 border border-slate-800 px-6 py-3 rounded-full hover:bg-red-600 hover:border-red-500 transition-all flex items-center gap-2 shadow-xl"
+              >
+                <X size={16} /> Fechar Janela
+              </button>
               <CheckoutModal 
                 totalValue={selected.length * (raffle?.ticketPrice || 0)} 
                 selectedNumbers={selected} 
                 raffleTitle={raffle?.title || ""} 
                 raffleId={raffleId} 
                 cambistaId={cambistaId || undefined} 
-                onSuccess={() => setSelected([])} 
+                onSuccess={() => {
+                  setSelected([]);
+                  setShowCheckout(false);
+                }} 
               />
             </div>
           </div>

@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { db } from "@/lib/firebase";
 import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useSettings } from "@/hooks/useSettings";
 import { 
-  CheckCircle2, 
   Copy, 
   Smartphone, 
   User, 
@@ -22,7 +22,7 @@ interface CheckoutModalProps {
   selectedNumbers: string[];
   raffleTitle: string;
   raffleId: string;
-  cambistaId?: string | null; // Captura automática do parceiro/cambista
+  cambistaId?: string | null;
   onSuccess: () => void;
 }
 
@@ -36,6 +36,7 @@ export const CheckoutModal = ({
   cambistaId, 
   onSuccess 
 }: CheckoutModalProps) => {
+  const { pixKey } = useSettings(); // Puxa a chave PIX real do banco
   const [step, setStep] = useState<Step>("FORM");
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -43,43 +44,56 @@ export const CheckoutModal = ({
     phone: "",
   });
 
-  // Chave PIX (Pode ser alterada futuramente para vir do useSettings)
-  const PIX_KEY = "79996337995"; 
+  // MÁSCARA DE TELEFONE (Polimento de UX)
+  const maskPhone = (value: string) => {
+    return value
+      .replace(/\D/g, "")
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d)/, "$1-$2")
+      .replace(/(-\d{4})\d+?$/, "$1");
+  };
 
   const handleCopyPix = () => {
-    navigator.clipboard.writeText(PIX_KEY);
+    if (!pixKey) return toast.error("Chave PIX não configurada.");
+    navigator.clipboard.writeText(pixKey);
     toast.success("Chave PIX copiada!");
   };
 
   const handleProcessCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || formData.phone.length < 10) {
-      return toast.error("Preencha os dados corretamente");
+    
+    // VALIDAÇÃO BLINDADA
+    const cleanPhone = formData.phone.replace(/\D/g, "");
+    const cleanName = formData.name.trim();
+
+    if (cleanName.length < 3) {
+      return toast.error("Informe seu nome completo");
+    }
+    if (cleanPhone.length !== 11) {
+      return toast.error("Informe um WhatsApp válido com DDD");
     }
 
     setLoading(true);
     try {
       const orderData = {
-        customerName: formData.name,
-        customerPhone: formData.phone,
+        customerName: cleanName,
+        customerPhone: cleanPhone,
         selectedNumbers,
         totalValue,
         raffleId,
         raffleTitle,
-        cambistaId: cambistaId || null, // Vínculo com o cambista se existir
+        cambistaId: cambistaId || null,
         status: "PENDENTE",
         createdAt: serverTimestamp(),
       };
 
-      // 1. Salva o pedido principal
       const orderRef = await addDoc(collection(db, "pedidos"), orderData);
       
-      // 2. Reserva os números como pendentes no banco para evitar compras duplicadas
       const reservePromises = selectedNumbers.map(num => 
         setDoc(doc(db, "rifas", raffleId, "pending_numbers", num), {
           orderId: orderRef.id,
-          customerPhone: formData.phone,
-          expiresAt: new Date(Date.now() + 30 * 60000) // Expira em 30 minutos
+          customerPhone: cleanPhone,
+          expiresAt: new Date(Date.now() + 30 * 60000)
         })
       );
       
@@ -104,7 +118,7 @@ export const CheckoutModal = ({
               <ShieldCheck className="text-blue-500" size={32} />
             </div>
             <h2 className="text-2xl font-black uppercase italic tracking-tighter">Finalizar Reserva</h2>
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Informe seus dados para o sorteio</p>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Seus dados estão protegidos</p>
           </div>
 
           <div className="space-y-4">
@@ -113,7 +127,7 @@ export const CheckoutModal = ({
               <input 
                 required
                 type="text"
-                placeholder="Nome Completo"
+                placeholder="Seu Nome Completo"
                 className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-blue-500 transition-all font-bold text-sm"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
@@ -125,10 +139,10 @@ export const CheckoutModal = ({
               <input 
                 required
                 type="tel"
-                placeholder="WhatsApp com DDD"
+                placeholder="(00) 00000-0000"
                 className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-blue-500 transition-all font-bold text-sm"
                 value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                onChange={(e) => setFormData({...formData, phone: maskPhone(e.target.value)})}
               />
             </div>
           </div>
@@ -141,7 +155,7 @@ export const CheckoutModal = ({
             <div className="flex justify-between items-end">
               <div className="flex flex-wrap gap-1 max-w-[70%]">
                 {selectedNumbers.slice(0, 5).map(n => (
-                  <span key={n} className="bg-blue-600/10 text-blue-500 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-blue-500/10">{n}</span>
+                  <span key={n} className="bg-blue-600/10 text-blue-500 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-blue-500/10 tracking-tighter">{n}</span>
                 ))}
                 {selectedNumbers.length > 5 && <span className="text-[10px] text-slate-600 font-bold">+{selectedNumbers.length - 5}</span>}
               </div>
@@ -174,8 +188,10 @@ export const CheckoutModal = ({
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4 text-center">
-            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Chave PIX (Celular)</p>
-            <p className="text-xl font-black text-white tracking-widest">{PIX_KEY}</p>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Chave PIX (Copia e Cola)</p>
+            <p className="text-sm font-bold text-white break-all bg-black/30 p-3 rounded-xl border border-white/5 select-all">
+              {pixKey || "Carregando chave..."}
+            </p>
             <button 
               onClick={handleCopyPix}
               className="flex items-center gap-2 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white px-6 py-3 rounded-xl mx-auto transition-all font-black uppercase text-[10px] tracking-widest border border-blue-500/20"
@@ -188,7 +204,7 @@ export const CheckoutModal = ({
             <button 
               onClick={() => {
                 const text = `Oi! Acabei de fazer uma reserva de ${selectedNumbers.length} cotas na rifa "${raffleTitle}". Vou enviar o comprovante!`;
-                window.open(`https://wa.me/5579996337995?text=${encodeURIComponent(text)}`, '_blank');
+                window.open(`https://wa.me/${pixKey?.replace(/\D/g, "") || "5579996337995"}?text=${encodeURIComponent(text)}`, '_blank');
               }}
               className="w-full bg-[#075E54] hover:bg-[#0C7A6D] py-5 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all"
             >

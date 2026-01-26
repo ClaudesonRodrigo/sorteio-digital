@@ -1,14 +1,22 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from "firebase/firestore";
-import { Search, Ticket, Loader2, Smartphone, CheckCircle2, Clock, MessageCircle, ArrowLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { 
+  Ticket, 
+  Search, 
+  Loader2, 
+  ArrowLeft, 
+  Smartphone, 
+  Calendar,
+  ChevronRight,
+  ShoppingBag
+} from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-// Interface para evitar erro de Property 'raffleId' does not exist
 interface Order {
   id: string;
   customerName: string;
@@ -16,156 +24,163 @@ interface Order {
   selectedNumbers: string[];
   totalValue: number;
   raffleTitle: string;
-  raffleId: string; // Crucial para o filtro de segurança
   status: "PENDENTE" | "PAGO" | "CANCELADO";
   createdAt: any;
 }
 
-export default function MyTickets() {
-  const router = useRouter();
+export default function TicketsPage() {
   const [phone, setPhone] = useState("");
-  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // MÁSCARA PADRÃO ELITE
+  const maskPhone = (value: string) => {
+    return value
+      .replace(/\D/g, "")
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d)/, "$1-$2")
+      .replace(/(-\d{4})\d+?$/, "$1");
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = phone.replace(/\D/g, "");
+
     if (cleanPhone.length < 10) {
-      return toast.error("Informe um WhatsApp válido");
+      return toast.error("Introduza um número de WhatsApp válido");
     }
-    
+
     setLoading(true);
-    setSearched(true);
     try {
       const q = query(
-        collection(db, "pedidos"), 
-        where("customerPhone", "==", phone),
-        orderBy("createdAt", "desc")
+        collection(db, "pedidos"),
+        where("customerPhone", "==", cleanPhone)
       );
       
       const querySnapshot = await getDocs(q);
-      const rawOrders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+      const results = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Order[];
 
-      // FILTRO DE SEGURANÇA: Só exibe bilhetes de rifas que NÃO estão finalizadas
-      const validOrders = [];
-      
-      for (const order of rawOrders) {
-        if (!order.raffleId) continue;
-        
-        const raffleSnap = await getDoc(doc(db, "rifas", order.raffleId));
-        if (raffleSnap.exists()) {
-          const raffleData = raffleSnap.data();
-          // Bloqueio de consulta para rifas finalizadas
-          if (raffleData.status !== "FINISHED") {
-            validOrders.push({
-              ...order,
-              raffleTitle: raffleData.title
-            });
-          }
-        }
-      }
+      // Ordenação manual por data (caso o índice composto do Firebase ainda não esteja pronto)
+      results.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
 
-      setOrders(validOrders);
+      setOrders(results);
+      setHasSearched(true);
+      if (results.length === 0) toast.error("Nenhum pedido encontrado para este número.");
     } catch (error) {
-      console.error("Erro ao buscar bilhetes:", error);
-      toast.error("Erro na busca de dados.");
+      console.error(error);
+      toast.error("Erro ao procurar bilhetes.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0F1C] text-white p-6 pb-20">
-      <div className="mx-auto max-w-2xl">
-        <button 
-          onClick={() => router.push("/")}
-          className="mb-8 flex items-center gap-2 text-slate-500 font-black uppercase text-[10px] tracking-widest hover:text-blue-500 transition-colors active:scale-95"
-        >
-          <ArrowLeft size={16} /> Voltar ao Início
-        </button>
-
-        <header className="text-center mb-10">
-          <div className="bg-blue-600/10 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20 shadow-xl">
-            <Ticket className="text-blue-500" size={40} />
+    <div className="min-h-screen bg-[#0A0F1C] text-white p-6 md:p-10">
+      <div className="max-w-4xl mx-auto space-y-10">
+        
+        {/* CABEÇALHO */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <Link href="/" className="flex items-center gap-2 text-slate-500 hover:text-blue-500 transition-colors mb-4 group">
+              <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Voltar para os Sorteios</span>
+            </Link>
+            <h1 className="text-4xl font-black uppercase italic tracking-tighter">Meus <span className="text-blue-500">Números</span></h1>
+            <p className="text-slate-500 text-xs font-medium uppercase tracking-widest">Consulte as suas reservas e compras</p>
           </div>
-          <h1 className="text-3xl font-black uppercase tracking-tighter italic text-white leading-none">Meus Números</h1>
-          <p className="text-slate-500 mt-3 font-medium text-sm">Consulte as cotas de seus sorteios ativos.</p>
+          <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-3xl hidden md:block">
+            <Ticket className="text-blue-500" size={32} />
+          </div>
         </header>
 
-        <form onSubmit={handleSearch} className="mb-12">
-          <div className="relative group">
-            <Smartphone className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
-            <input 
-              type="text"
-              placeholder="(79) 9XXXX-XXXX"
-              className="w-full bg-[#121826] border border-slate-800 rounded-4xl py-6 pl-16 pr-6 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-lg font-bold placeholder:text-slate-700 shadow-2xl"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
+        {/* BUSCA */}
+        <section className="bg-[#121826] border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl">
+          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1 group">
+              <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-blue-500 transition-colors" size={20} />
+              <input 
+                type="tel"
+                placeholder="(00) 00000-0000"
+                className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-5 pl-12 pr-4 outline-none focus:border-blue-500 transition-all font-bold text-lg"
+                value={phone}
+                onChange={(e) => setPhone(maskPhone(e.target.value))}
+                required
+              />
+            </div>
             <button 
               type="submit"
               disabled={loading}
-              className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 px-6 py-4 rounded-2xl transition-all disabled:bg-slate-800 shadow-xl active:scale-95 flex items-center justify-center"
+              className="bg-blue-600 hover:bg-blue-700 px-10 py-5 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-blue-900/20"
             >
-              {loading ? <Loader2 className="animate-spin text-white" size={24} /> : <Search className="text-white" size={24} />}
+              {loading ? <Loader2 className="animate-spin" size={20} /> : <><Search size={18} /> Procurar</>}
             </button>
-          </div>
-        </form>
+          </form>
+        </section>
 
+        {/* RESULTADOS */}
         <div className="space-y-6">
-          {orders.map((order) => (
-            <div key={order.id} className="bg-[#121826] border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex justify-between items-start mb-6">
-                <div className="text-left">
-                  <h3 className="text-blue-500 font-black uppercase text-xs tracking-widest mb-1 italic">{order.raffleTitle}</h3>
-                  <p className="text-slate-500 text-[10px] font-bold uppercase">
-                    ID: {order.id.slice(0, 8)}
-                  </p>
-                </div>
-                
-                <div className={cn(
-                  "px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5",
-                  order.status === "PAGO" ? "bg-green-500/10 text-green-500 border border-green-500/20" : "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                )}>
-                  {order.status === "PAGO" ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                  {order.status === "PAGO" ? "Confirmado" : "Pendente"}
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-2 mb-8">
-                {order.selectedNumbers.map((num: string) => (
-                  <div key={num} className={cn(
-                    "w-12 h-12 flex items-center justify-center rounded-xl font-mono font-black text-sm border transition-all shadow-inner",
-                    order.status === "PAGO" ? "bg-blue-600 text-white border-blue-400" : "bg-slate-900 border-slate-800 text-slate-500"
-                  )}>
-                    {num}
+          {hasSearched ? (
+            orders.length > 0 ? (
+              orders.map((order) => (
+                <div key={order.id} className="bg-[#121826] border border-slate-800 rounded-[2.5rem] p-8 shadow-xl animate-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex flex-col md:flex-row justify-between gap-6 border-b border-slate-800/50 pb-6 mb-6">
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-blue-500 font-black uppercase tracking-widest">{order.raffleTitle}</p>
+                      <h3 className="text-xl font-black uppercase italic tracking-tight">Pedido #{order.id.slice(-6).toUpperCase()}</h3>
+                    </div>
+                    <div className={cn(
+                      "px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest h-fit border text-center",
+                      order.status === "PAGO" ? "bg-green-500/10 text-green-500 border-green-500/20" : 
+                      order.status === "CANCELADO" ? "bg-red-500/10 text-red-500 border-red-500/20" : 
+                      "bg-orange-500/10 text-orange-500 border-orange-500/20"
+                    )}>
+                      {order.status}
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="pt-6 border-t border-slate-800/50 flex flex-col sm:flex-row gap-6 items-center justify-between">
-                <div className="text-left w-full sm:w-auto">
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Total Pago</p>
-                  <p className="text-2xl font-black text-white italic">{(order.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-slate-500 italic">
+                        <Calendar size={16} />
+                        <span className="text-[10px] font-black uppercase">Data: {order.createdAt?.toDate().toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Números Escolhidos:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {order.selectedNumbers.map(num => (
+                          <span key={num} className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-black text-blue-500">
+                            {num}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-800 flex flex-col justify-center items-center text-center">
+                      <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1 italic">Total Pago</p>
+                      <p className="text-3xl font-black text-white italic tracking-tighter">
+                        {order.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                
-                {order.status === "PENDENTE" && (
-                  <button 
-                    onClick={() => window.open(`https://wa.me/5579996337995`, '_blank')}
-                    className="w-full sm:w-auto bg-[#075E54] hover:bg-[#0C7A6D] text-white px-8 py-5 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl shadow-green-900/10"
-                  >
-                    <MessageCircle size={20} /> Comprovante
-                  </button>
-                )}
+              ))
+            ) : (
+              <div className="text-center py-20 bg-slate-900/30 rounded-[3rem] border border-dashed border-slate-800 space-y-6">
+                <ShoppingBag className="mx-auto text-slate-700" size={48} />
+                <div className="space-y-2">
+                  <p className="text-slate-500 font-black uppercase italic tracking-widest text-sm">Não encontramos compras para este número.</p>
+                  <Link href="/" className="text-blue-500 font-black uppercase text-[10px] tracking-widest hover:underline underline-offset-4">
+                    Quero participar de um sorteio agora
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
-
-          {searched && !loading && orders.length === 0 && (
-            <div className="text-center py-24 border-2 border-dashed border-slate-800 rounded-[3rem] bg-[#121826]/30">
-              <Ticket className="mx-auto text-slate-800 mb-6 opacity-20" size={80} />
-              <p className="text-slate-500 font-black uppercase tracking-widest text-xs">Nenhum sorteio ativo encontrado.</p>
+            )
+          ) : (
+            <div className="text-center py-12 opacity-30">
+              <p className="text-[10px] font-black uppercase tracking-[0.4em]">Aguardando consulta...</p>
             </div>
           )}
         </div>
